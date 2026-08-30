@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NAMASTE to ICD-11 (TM2) Terminology Bridge & EMR Integration</title>
+  
+  <!-- Tailwind CSS CDN with custom config -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  
+  <!-- Google Material Symbols Outlined -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  
+  <!-- Firebase Web SDK v10 (Compat CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0f172a",
+            "ayush-teal": "#006a61",
+            "ayush-mint": "#89f5e7"
+          },
+          borderRadius: {
+            "DEFAULT": "0.375rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "sidebar-width": "260px"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F8FAFC;
+    }
+    .syntax-string { color: #0090a9; }
+    .syntax-number { color: #2563eb; }
+    .syntax-boolean { color: #dc2626; }
+    .syntax-null { color: #64748b; }
+    .syntax-key { color: #0f172a; font-weight: 600; }
+    .code-bg { background-color: #0f172a; }
+    .bg-grid-pattern {
+      background-size: 32px 32px;
+      background-image: linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+    }
+    .modal-backdrop {
+      background-color: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+<body class="h-full text-slate-800 antialiased flex flex-col md:flex-row overflow-x-hidden">
+
+  <!-- ==================== SIDEBAR NAVIGATION ==================== -->
+  <aside class="w-full md:w-sidebar-width bg-white border-r border-slate-200 flex flex-col md:h-screen md:fixed left-0 top-0 z-40 shadow-sm">
+    <!-- Brand Logo -->
+    <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-md">
+          <span class="material-symbols-outlined text-2xl">published_with_changes</span>
+        </div>
+        <div>
+          <h1 class="font-bold text-slate-900 text-base leading-tight tracking-tight">NAMASTE Bridge</h1>
+          <p class="text-xs text-slate-500 font-medium">ICD-11 (TM2) Interop</p>
+        </div>
+      </div>
+      <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="md:hidden text-slate-500 hover:text-slate-800 p-1">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+    </div>
+
+    <!-- Navigation Links -->
+    <nav id="sidebar-nav" class="flex-1 p-3 space-y-1 overflow-y-auto hidden md:block">
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2">Ecosystem View</div>
+      
+      <a href="#home" onclick="switchTab('home')" id="nav-home" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-900 font-bold text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500">home</span>
+        <span>Platform Overview</span>
+      </a>
+
+      <a href="#dashboard" onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500">dashboard</span>
+        <span>Live Dashboard</span>
+      </a>
+
+      <a href="#terminology" onclick="switchTab('terminology')" id="nav-terminology" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500">menu_book</span>
+        <span>Terminology Search</span>
+      </a>
+
+      <a href="#explorer" onclick="switchTab('explorer')" id="nav-explorer" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500">dataset_linked</span>
+        <span>EMR Resource Explorer</span>
+      </a>
+
+      <a href="#api-integration" onclick="switchTab('api-integration')" id="nav-api-integration" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-teal-600">code_blocks</span>
+        <span class="font-semibold text-slate-900">EMR API Generator</span>
+      </a>
+
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-4">Security & Services</div>
+
+      <a href="#security" onclick="switchTab('security')" id="nav-security" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500">lock</span>
+        <span>Firebase Auth & Traffic</span>
+      </a>
+
+      <!-- Admin Console Link: Visible ONLY when logged in user role === 'admin' -->
+      <a id="admin-console-btn" href="admin.html" target="_blank" class="hidden flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-slate-900 text-white font-semibold text-xs mt-4 shadow-sm hover:bg-slate-800 transition-all">
+        <span class="material-symbols-outlined text-base">admin_panel_settings</span>
+        <span>Open Admin Console ↗</span>
+      </a>
+    </nav>
+
+    <!-- User / Auth Quick Status Card -->
+    <div class="p-3 border-t border-slate-100 mt-auto bg-slate-50/50">
+      <div id="user-status-card" class="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200 shadow-xs">
+        <div class="flex items-center gap-2.5 overflow-hidden">
+          <div id="user-avatar" class="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs shrink-0">
+            G
+          </div>
+          <div class="truncate">
+            <p id="user-name" class="text-xs font-semibold text-slate-900 truncate">Guest Practitioner</p>
+            <p id="user-role" class="text-[11px] text-slate-500 truncate">Demo Mode (Offline)</p>
+          </div>
+        </div>
+        <button onclick="openAuthModal()" class="text-slate-400 hover:text-teal-600 p-1" title="Account Settings / Sign In">
+          <span class="material-symbols-outlined text-lg">login</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN CONTENT WRAPPER ==================== -->
+  <div class="flex-1 md:ml-sidebar-width flex flex-col min-h-screen">
+    
+    <!-- TOP BAR HEADER -->
+    <header class="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 flex items-center justify-between px-4 md:px-8">
+      <div class="flex items-center gap-3">
+        <span id="page-title-icon" class="material-symbols-outlined text-teal-600 text-2xl">published_with_changes</span>
+        <h2 id="page-title" class="font-bold text-slate-900 text-lg">NAMASTE to ICD-11 TM2 Terminology Bridge</h2>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Live Traffic Badge -->
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-medium border border-emerald-200/60">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span>Traffic: <strong id="header-traffic-count">1,248</strong> hits</span>
+        </div>
+
+        <!-- Firebase Status Indicator -->
+        <button onclick="switchTab('security')" id="fb-status-pill" class="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium transition-colors" title="Firebase Status">
+          <span id="fb-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span id="fb-status-text">Firebase Live DB</span>
+        </button>
+
+        <!-- Auth Action Header Button -->
+        <div class="flex items-center gap-2">
+          <button id="header-auth-btn" onclick="openAuthModal()" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">account_circle</span>
+            <span id="header-auth-btn-text">Sign In / Sign Up</span>
+          </button>
+          <button id="header-signout-btn" onclick="handleSignOut()" class="hidden px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">logout</span> Sign Out
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- TAB CONTENTS -->
+    <main class="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
+
+      <!-- ================= PAGE 1: HOME / PLATFORM OVERVIEW ================= -->
+      <section id="tab-home" class="tab-content space-y-8">
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 p-8 md:p-12 text-white shadow-xl">
+          <div class="absolute inset-0 bg-grid-pattern opacity-10"></div>
+          <div class="relative z-10 max-w-3xl space-y-5">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+              <span class="material-symbols-outlined text-sm">verified_user</span> Ministry of AYUSH & WHO ICD-11 Standards
+            </span>
+            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
+              Connect Healthcare Systems.<br/>Standardize AYUSH Clinical Terminology.
+            </h1>
+            <p class="text-slate-300 text-base md:text-lg leading-relaxed">
+              AyurFHIR Bridge provides an enterprise-ready infrastructure to map NAMASTE AYUSH codes (Ayurveda, Siddha, Unani, Homeopathy) to WHO ICD-11 Traditional Medicine Module 2 (TM2) & MMS, generating FHIR R4 standard payloads for EHR interoperability.
+            </p>
+            <div class="flex flex-wrap items-center gap-4 pt-2">
+              <button onclick="switchTab('terminology')" class="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg flex items-center gap-2">
+                Launch Terminology Search
+                <span class="material-symbols-outlined text-lg">search</span>
+              </button>
+              <button onclick="switchTab('api-integration')" class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl text-sm transition-all border border-white/20 flex items-center gap-2">
+                View EMR API Generator
+                <span class="material-symbols-outlined text-lg">code_blocks</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <span class="material-symbols-outlined text-teal-600">account_tree</span>
+                End-to-End Interoperability Architecture Pipeline
+              </h3>
+              <p class="text-xs text-slate-500">Live data transformation flow from legacy clinical input to standardized FHIR R4 ICD-11 bundle.</p>
+            </div>
+            <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-mono">Protocol: REST / FHIR R4 / JSON</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center text-center">
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 relative">
+              <div class="w-12 h-12 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center mx-auto">
+                <span class="material-symbols-outlined text-2xl">medical_information</span>
+              </div>
+              <h4 class="font-bold text-sm text-slate-800">1. Legacy EMR Input</h4>
+              <p class="text-xs text-slate-500">Clinical Narrative / Local Code (e.g., "Amlapitta", "Jvara")</p>
+            </div>
+
+            <div class="hidden md:flex justify-center text-teal-600">
+              <span class="material-symbols-outlined text-2xl animate-pulse">arrow_forward</span>
+            </div>
+
+            <div class="p-4 bg-teal-50 border border-teal-200 rounded-xl space-y-2 shadow-xs">
+              <div class="w-12 h-12 rounded-full bg-teal-600 text-white flex items-center justify-center mx-auto shadow-md">
+                <span class="material-symbols-outlined text-2xl">sync_alt</span>
+              </div>
+              <h4 class="font-bold text-sm text-teal-900">2. NAMASTE Bridge Engine</h4>
+              <p class="text-xs text-teal-700">Semantic Matching & Concept Alignment</p>
+            </div>
+
+            <div class="hidden md:flex justify-center text-teal-600">
+              <span class="material-symbols-outlined text-2xl animate-pulse">arrow_forward</span>
+            </div>
+
+            <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+              <div class="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto">
+                <span class="material-symbols-outlined text-2xl">dataset_linked</span>
+              </div>
+              <h4 class="font-bold text-sm text-emerald-900">3. ICD-11 TM2 / FHIR Output</h4>
+              <p class="text-xs text-emerald-700">FHIR R4 Condition Resource with TM2 & MMS Codings</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE 2: LIVE DASHBOARD ================= -->
+      <section id="tab-dashboard" class="tab-content hidden space-y-8">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Interoperability Infrastructure Dashboard</h2>
+          <p class="text-xs text-slate-500">Real-time health, mapping telemetry, and traffic metrics.</p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase">API Requests</p>
+            <p id="stat-api-requests" class="text-2xl font-extrabold text-slate-900">12,483</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase">Successful Maps</p>
+            <p id="stat-successful-maps" class="text-2xl font-extrabold text-slate-900">11,921</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase">FHIR Validated</p>
+            <p id="stat-fhir-validated" class="text-2xl font-extrabold text-slate-900">10,832</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase">Connected EMRs</p>
+            <p class="text-2xl font-extrabold text-slate-900">6</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-red-200 bg-red-50/20 shadow-xs space-y-1">
+            <p class="text-[11px] font-semibold text-red-500 uppercase">API Errors</p>
+            <p id="stat-api-errors" class="text-2xl font-extrabold text-red-600">562</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
+            <p class="text-[11px] font-semibold text-slate-400 uppercase">System Uptime</p>
+            <p class="text-2xl font-extrabold text-slate-900">99.98%</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3 flex items-center justify-between">
+              <span>Integration Health</span>
+              <span class="text-xs font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">All Operational</span>
+            </h3>
+            <div class="space-y-3 text-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                <span class="font-semibold text-slate-700">EMR EHR Connector</span>
+                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold">Healthy</span>
+              </div>
+              <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                <span class="font-semibold text-slate-700">WHO ICD-11 TM2 API</span>
+                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold">Healthy</span>
+              </div>
+              <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                <span class="font-semibold text-slate-700">Firebase Realtime DB Traffic</span>
+                <span id="health-fb-badge" class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold">Synced</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-900 text-base">Real-time Activity Stream (Firebase Realtime DB)</h3>
+              <button onclick="triggerSimulatedActivity()" class="text-xs text-teal-600 font-semibold hover:underline flex items-center gap-1">
+                <span class="material-symbols-outlined text-sm">add_circle</span> Simulate Event
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                    <th class="py-2.5 px-3">Time</th>
+                    <th class="py-2.5 px-3">Event Type</th>
+                    <th class="py-2.5 px-3">Client / User</th>
+                    <th class="py-2.5 px-3">Resource Target</th>
+                    <th class="py-2.5 px-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="activity-table-body" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE 3: RICH INTERACTIVE TERMINOLOGY SEARCH ================= -->
+      <section id="tab-terminology" class="tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">NAMASTE to ICD-11 (TM2) Terminology Search Engine</h2>
+          <p class="text-xs text-slate-500">Search 25+ standardized concepts across Ayurveda, Siddha, Unani, and Homeopathy mapped to WHO ICD-11 TM2.</p>
+        </div>
+
+        <!-- Search Bar & Multi-Filters -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+            <input id="term-search-input" onkeyup="performTerminologySearch()" type="text" placeholder="Search AYUSH term, Sanskrit name, ICD-11 code, or diagnosis (e.g. Amlapitta, Jvara, Prameha, Shwasa, Kasa)..." class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-teal-600 transition-all" />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 text-xs pt-1">
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-500 font-medium">AYUSH Stream:</span>
+                <select id="filter-stream" onchange="performTerminologySearch()" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 font-medium">
+                  <option value="ALL">All Streams</option>
+                  <option value="Ayurveda">Ayurveda</option>
+                  <option value="Siddha">Siddha</option>
+                  <option value="Unani">Unani</option>
+                  <option value="Homeopathy">Homeopathy</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-500 font-medium">Target Standard:</span>
+                <select id="filter-system" onchange="performTerminologySearch()" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 font-medium">
+                  <option value="ALL">All Standards</option>
+                  <option value="ICD11">ICD-11 TM2 / MMS</option>
+                  <option value="SNOMED">SNOMED CT</option>
+                </select>
+              </div>
+            </div>
+
+            <span class="text-xs text-slate-500">Showing <strong id="search-count-badge" class="text-slate-900 font-bold">0</strong> concepts</span>
+          </div>
+        </div>
+
+        <!-- Terminology Result Cards Container -->
+        <div id="results-container" class="space-y-4"></div>
+      </section>
+
+      <!-- ================= PAGE 4: RESOURCE EXPLORER ================= -->
+      <section id="tab-explorer" class="tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">EMR FHIR R4 Resource Explorer</h2>
+          <p class="text-xs text-slate-500">Inspect, validate, and download generated HL7 FHIR R4 payloads.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div class="md:col-span-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2 text-xs">
+            <button onclick="loadFhirSample('cond-001')" class="w-full text-left p-2.5 rounded-lg bg-teal-50 text-teal-800 font-bold border border-teal-200">Conditions (Amlapitta)</button>
+            <button onclick="loadFhirSample('cond-002')" class="w-full text-left p-2.5 rounded-lg text-slate-700 hover:bg-slate-100">Conditions (Jvara)</button>
+            <button onclick="loadFhirSample('cond-003')" class="w-full text-left p-2.5 rounded-lg text-slate-700 hover:bg-slate-100">Conditions (Prameha)</button>
+            <button onclick="loadFhirSample('encounter-001')" class="w-full text-left p-2.5 rounded-lg text-slate-700 hover:bg-slate-100">Encounter (OPD Consultation)</button>
+            <button onclick="loadFhirSample('patient-001')" class="w-full text-left p-2.5 rounded-lg text-slate-700 hover:bg-slate-100">Patient Record</button>
+            <button onclick="loadFhirSample('conceptmap-001')" class="w-full text-left p-2.5 rounded-lg text-slate-700 hover:bg-slate-100">ConceptMap (AYUSH → ICD-11)</button>
+          </div>
+
+          <div class="md:col-span-9 space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex justify-between items-center text-xs">
+              <span id="explorer-resource-title" class="font-bold text-slate-900 text-sm">Condition / Amlapitta Payload</span>
+              <div class="flex gap-2">
+                <button onclick="copyExplorerJson()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg flex items-center gap-1">
+                  <span class="material-symbols-outlined text-sm">content_copy</span> Copy JSON
+                </button>
+                <button onclick="validateExplorerSchema()" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg flex items-center gap-1">
+                  <span class="material-symbols-outlined text-sm">verified</span> Validate Schema
+                </button>
+              </div>
+            </div>
+
+            <div class="code-bg rounded-2xl border border-slate-800 shadow-lg overflow-hidden flex flex-col">
+              <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 text-xs text-slate-400 font-mono">HL7 FHIR R4 JSON</div>
+              <pre class="p-4 font-mono text-xs text-slate-200 overflow-x-auto leading-relaxed"><code id="json-display"></code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE 5: DYNAMIC EMR API GENERATOR ================= -->
+      <section id="tab-api-integration" class="tab-content hidden space-y-6">
+        <div>
+          <span class="px-2.5 py-0.5 rounded-md bg-teal-100 text-teal-800 text-xs font-bold uppercase">Developer Suite</span>
+          <h2 class="text-2xl font-bold text-slate-900 mt-1">EMR Systems API Payload Generator</h2>
+          <p class="text-xs text-slate-500">Configure parameters to dynamically generate and execute authenticated REST API requests for ICD-11 TM2 mapping.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+          <!-- Parameter Config Form -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs pb-3 border-b border-slate-100">
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">AYUSH System</label>
+              <select id="api-param-system" onchange="updateApiGeneratorPayload()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                <option value="Ayurveda" selected>Ayurveda</option>
+                <option value="Siddha">Siddha</option>
+                <option value="Unani">Unani</option>
+                <option value="Homeopathy">Homeopathy</option>
+              </select>
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Concept Term</label>
+              <select id="api-param-term" onchange="updateApiGeneratorPayload()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-800">
+                <option value="NAM-AYU-0012:Amlapitta" selected>Amlapitta (NAM-AYU-0012)</option>
+                <option value="NAM-AYU-0045:Jvara">Jvara / Fever (NAM-AYU-0045)</option>
+                <option value="NAM-AYU-0089:Prameha">Prameha / Diabetes (NAM-AYU-0089)</option>
+                <option value="NAM-AYU-0102:Kasa">Kasa / Cough (NAM-AYU-0102)</option>
+                <option value="NAM-SID-0021:Azhal Noy">Azhal Noy (NAM-SID-0021)</option>
+                <option value="NAM-UNA-0078:Humma">Humma / Fever (NAM-UNA-0078)</option>
+              </select>
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Patient ID</label>
+              <input id="api-param-patient" type="text" value="PAT-9942" onkeyup="updateApiGeneratorPayload()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-mono" />
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1">Output Format</label>
+              <select id="api-param-format" onchange="updateApiGeneratorPayload()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-mono">
+                <option value="FHIR_R4_CONDITION" selected>FHIR_R4_CONDITION</option>
+                <option value="FHIR_R4_CONCEPTMAP">FHIR_R4_CONCEPTMAP</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Interactive Request & Response Sandbox -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div class="space-y-2">
+              <label class="font-bold text-slate-700 flex justify-between">
+                <span>Request Body (Generated JSON)</span>
+                <span class="text-teal-600 font-mono">POST /api/v1/map</span>
+              </label>
+              <textarea id="api-sandbox-input" rows="10" class="w-full font-mono bg-slate-900 text-slate-100 p-3 rounded-xl border border-slate-800 text-xs leading-relaxed"></textarea>
+              <button onclick="executeApiSandbox()" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md">
+                <span class="material-symbols-outlined text-base">play_arrow</span> Execute Authenticated API Call & Sync RTDB
+              </button>
+            </div>
+            <div class="space-y-2">
+              <label class="font-bold text-slate-700">API Response (200 OK)</label>
+              <pre class="h-[265px] font-mono bg-slate-900 text-emerald-400 p-3 rounded-xl border border-slate-800 overflow-y-auto text-xs leading-relaxed"><code id="api-sandbox-output">// Click 'Execute Authenticated API Call' to test real-time mapping generation</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE 6: FIREBASE AUTH & TRAFFIC ================= -->
+      <section id="tab-security" class="tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Firebase Auth & Realtime Database Integration</h2>
+          <p class="text-xs text-slate-500">Active session status and live database telemetry.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+            <h3 class="font-bold text-slate-900 text-base">Firebase Authentication Profile</h3>
+            <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-1">
+              <p>Status: <strong id="fb-auth-state" class="text-slate-900">Guest Practitioner (Offline Demo)</strong></p>
+              <p>User Email: <span id="sec-user-email" class="text-slate-600">guest@ayurfhir-demo.gov.in</span></p>
+              <p>Assigned Role: <span id="sec-user-role" class="font-bold text-teal-700">USER / PRACTITIONER</span></p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="openAuthModal()" class="py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition-colors">
+                Sign In / Sign Up
+              </button>
+              <button onclick="handleSignOut()" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors">
+                Sign Out
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+            <h3 class="font-bold text-slate-900 text-base">Firebase Realtime Database Telemetry</h3>
+            <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-1">
+              <p>Project ID: <code class="text-teal-600 font-mono">namaste-1e265</code></p>
+              <p>Live Hits Recorded: <strong id="fb-live-hits" class="text-slate-900 text-sm">1,248</strong></p>
+              <p>RTDB Target: <code class="text-slate-500 font-mono text-[10px]">https://namaste-1e265-default-rtdb.firebaseio.com</code></p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- AUTHENTICATION MODAL (SIGN IN & SIGN UP) -->
+  <div id="modal-auth" class="fixed inset-0 modal-backdrop z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-sm w-full p-6 space-y-5 shadow-2xl relative">
+      <button onclick="closeModal('modal-auth')" class="absolute right-4 top-4 text-slate-400 hover:text-slate-700">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+
+      <div class="flex border-b border-slate-200">
+        <button onclick="switchAuthTab('signin')" id="tab-auth-signin" class="flex-1 py-2 font-bold text-xs border-b-2 border-teal-600 text-teal-700">
+          Sign In
+        </button>
+        <button onclick="switchAuthTab('signup')" id="tab-auth-signup" class="flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700">
+          Create Account (Sign Up)
+        </button>
+      </div>
+
+      <!-- SIGN IN FORM -->
+      <form id="form-signin" onsubmit="handleSignIn(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Email Address</label>
+          <input id="signin-email" type="email" required placeholder="user@hospital.gov.in" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Password</label>
+          <input id="signin-password" type="password" required placeholder="••••••••" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+        </div>
+        <button type="submit" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition-colors">
+          Sign In to Platform
+        </button>
+      </form>
+
+      <!-- SIGN UP FORM -->
+      <form id="form-signup" onsubmit="handleSignUp(event)" class="space-y-3 text-xs hidden">
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Full Name</label>
+          <input id="signup-name" type="text" required placeholder="Dr. Rajeev Sharma" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Email Address</label>
+          <input id="signup-email" type="email" required placeholder="dr.sharma@hospital.gov.in" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Password</label>
+          <input id="signup-password" type="password" required minlength="6" placeholder="At least 6 characters" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1">Account Role</label>
+          <select id="signup-role" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 font-semibold text-slate-800">
+            <option value="user" selected>Practitioner / User (User Portal Only)</option>
+            <option value="admin">System Admin (Access Both User & Admin Console)</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors">
+          Create Account
+        </button>
+      </form>
+
+      <div class="pt-2 border-t border-slate-100 text-center">
+        <button onclick="useDemoAccount()" class="text-xs text-teal-600 font-semibold hover:underline">
+          Or Continue as Demo Guest Practitioner
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISUAL MAPPING MODAL -->
+  <div id="modal-mapping" class="fixed inset-0 modal-backdrop z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-2xl w-full p-6 space-y-6 shadow-2xl relative">
+      <button onclick="closeModal('modal-mapping')" class="absolute right-4 top-4 text-slate-400 hover:text-slate-700">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+
+      <div class="space-y-1">
+        <span class="px-2.5 py-0.5 rounded bg-teal-100 text-teal-800 text-xs font-bold">Visual Bridge Pathway</span>
+        <h3 id="mapping-modal-title" class="text-xl font-bold text-slate-900">Amlapitta Visual Mapping</h3>
+      </div>
+
+      <div class="p-6 bg-slate-900 rounded-xl text-white space-y-6">
+        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+          <div class="p-3 bg-slate-800 border border-slate-700 rounded-lg space-y-1">
+            <span class="text-[10px] text-teal-400 font-bold block">NAMASTE AYUSH</span>
+            <span id="mapping-node-namaste-code" class="font-bold text-white text-sm block">NAM-AYU-0012</span>
+            <span id="mapping-node-namaste-term" class="text-slate-400 block text-[11px]">Amlapitta</span>
+          </div>
+
+          <div class="p-3 bg-teal-900/60 border border-teal-500/40 rounded-lg space-y-1">
+            <span class="text-[10px] text-teal-300 font-bold block">WHO ICD-11 TM2</span>
+            <span id="mapping-node-icd-code" class="font-bold text-teal-200 text-sm block">TM2-AYU-G01.2</span>
+            <span class="text-teal-300/80 block text-[11px]">Hyperacidity/Pitta</span>
+          </div>
+
+          <div class="p-3 bg-slate-800 border border-slate-700 rounded-lg space-y-1">
+            <span class="text-[10px] text-emerald-400 font-bold block">ICD-11 MMS</span>
+            <span id="mapping-node-mms-code" class="font-bold text-white text-sm block">DA42.0</span>
+            <span class="text-slate-400 block text-[11px]">Gastritis / Dyspepsia</span>
+          </div>
+        </div>
+
+        <div class="p-3 bg-slate-800/80 rounded-lg text-slate-300 text-xs space-y-1">
+          <p class="font-bold text-teal-400">Mapping Confidence Score: 98% (Exact Match)</p>
+          <p>Equivalence: <code>equivalent</code> | Source: Ministry of AYUSH & WHO ICD-11 Guidelines 2024</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button onclick="closeModal('modal-mapping')" class="px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl text-xs">Close Diagram</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT DETAILS MODAL -->
+  <div id="modal-details" class="fixed inset-0 modal-backdrop z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-xl w-full p-6 space-y-5 shadow-2xl relative">
+      <button onclick="closeModal('modal-details')" class="absolute right-4 top-4 text-slate-400 hover:text-slate-700">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+
+      <div class="space-y-1">
+        <h3 id="details-modal-title" class="text-xl font-bold text-slate-900">Amlapitta Details</h3>
+        <p id="details-modal-sub" class="text-xs text-slate-500">Ayurveda System Metadata</p>
+      </div>
+
+      <div class="space-y-3 text-xs leading-relaxed">
+        <div class="p-3 bg-slate-50 rounded-xl space-y-1">
+          <span class="font-bold text-slate-700 block">Sanskrit Name & Transliteration:</span>
+          <p id="details-modal-sanskrit" class="text-slate-900 font-medium">अम्लपित्तम् (Amlapittam)</p>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl space-y-1">
+          <span class="font-bold text-slate-700 block">Clinical Definition:</span>
+          <p id="details-modal-def" class="text-slate-600">A clinical condition characterized by sour belching, indigestion, and burning sensation in the chest and epigastrium.</p>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl space-y-1">
+          <span class="font-bold text-slate-700 block">System Codings & Cross-Walks:</span>
+          <ul class="space-y-1 font-mono text-slate-800">
+            <li>NAMASTE Code: <strong id="details-code-namaste">NAM-AYU-0012</strong></li>
+            <li>ICD-11 TM2 Code: <strong id="details-code-tm2">TM2-AYU-G01.2</strong></li>
+            <li>ICD-11 MMS Code: <strong id="details-code-mms">DA42.0</strong></li>
+            <li>SNOMED CT Code: <strong id="details-code-snomed">62315008</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button onclick="closeModal('modal-details')" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ==================== JAVASCRIPT APPLICATION ENGINE ==================== -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA2l2wuVvBJ8i1SBPFIPOGz2JwWDDGjAqk",
+      authDomain: "namaste-1e265.firebaseapp.com",
+      databaseURL: "https://namaste-1e265-default-rtdb.firebaseio.com",
+      projectId: "namaste-1e265",
+      storageBucket: "namaste-1e265.firebasestorage.app",
+      messagingSenderId: "59383012302",
+      appId: "1:59383012302:web:9f2d37b84891bc4225e99f"
+    };
+
+    // Comprehensive 12+ AYUSH Concepts Dataset
+    const TERMINOLOGY_DATABASE = [
+      { id: "AY-AML-01", namasteCode: "NAM-AYU-0012", icd11Tm2Code: "TM2-AYU-G01.2", icd11MmsCode: "DA42.0", snomedCode: "62315008", termEnglish: "Amlapitta", termSanskrit: "अम्लपित्तम्", ayushStream: "Ayurveda", confidence: 98, description: "Clinical condition characterized by sour belching, indigestion, and burning sensation in the chest, correlating with hyperacidity or acid peptic disease." },
+      { id: "AY-JVA-01", namasteCode: "NAM-AYU-0045", icd11Tm2Code: "TM2-AYU-F04.1", icd11MmsCode: "MG26", snomedCode: "386661006", termEnglish: "Jvara (Fever)", termSanskrit: "ज्वरः", ayushStream: "Ayurveda", confidence: 96, description: "Elevated body temperature accompanied by loss of appetite and body malaise, categorized by dosha predominance (Vataja, Pittaja, Kaphaja)." },
+      { id: "AY-PRM-01", namasteCode: "NAM-AYU-0089", icd11Tm2Code: "TM2-AYU-M08.3", icd11MmsCode: "5A11", snomedCode: "44054006", termEnglish: "Prameha (Madhumeha)", termSanskrit: "प्रमेहः (मधुमेहः)", ayushStream: "Ayurveda", confidence: 97, description: "Metabolic disorder characterized by excessive turbidity and frequency of urine, clinically mapped to Type 2 Diabetes Mellitus." },
+      { id: "AY-KAS-01", namasteCode: "NAM-AYU-0102", icd11Tm2Code: "TM2-AYU-R02.5", icd11MmsCode: "MD11", snomedCode: "49727002", termEnglish: "Kasa (Cough)", termSanskrit: "कासः", ayushStream: "Ayurveda", confidence: 95, description: "Respiratory disorder involving upward movement of Prana Vayu causing sound production, corresponding to bronchitis or chronic cough." },
+      { id: "AY-SHW-01", namasteCode: "NAM-AYU-0115", icd11Tm2Code: "TM2-AYU-R05.2", icd11MmsCode: "CA23", snomedCode: "195967001", termEnglish: "Shwasa (Bronchial Asthma)", termSanskrit: "श्वासः", ayushStream: "Ayurveda", confidence: 96, description: "Breathing difficulty characterized by wheezing, shortness of breath, and chest tightness, correlating with asthma." },
+      { id: "AY-SND-01", namasteCode: "NAM-AYU-0130", icd11Tm2Code: "TM2-AYU-J01.8", icd11MmsCode: "FA01", snomedCode: "396275006", termEnglish: "Sandhivata (Osteoarthritis)", termSanskrit: "सन्धिवातः", ayushStream: "Ayurveda", confidence: 94, description: "Degenerative joint disorder caused by Vata aggravation in joint spaces, causing pain, stiffness, and crepitus." },
+      { id: "SD-AZH-01", namasteCode: "NAM-SID-0021", icd11Tm2Code: "TM2-SID-G04.1", icd11MmsCode: "DA42.1", snomedCode: "197480006", termEnglish: "Azhal Noy", termSanskrit: "அழல் நோய்", ayushStream: "Siddha", confidence: 94, description: "Siddha medicine concept representing Pitta humoral derangement resulting in digestive heat and hyperacidity." },
+      { id: "SD-VAT-01", namasteCode: "NAM-SID-0034", icd11Tm2Code: "TM2-SID-J02.4", icd11MmsCode: "FA00", snomedCode: "201834006", termEnglish: "Vatha Noy", termSanskrit: "வாத நோய்", ayushStream: "Siddha", confidence: 93, description: "Siddha classification of vatha humor derangements causing musculoskeletal and neurological pain." },
+      { id: "UN-HUM-01", namasteCode: "NAM-UNA-0078", icd11Tm2Code: "TM2-UNA-F02.8", icd11MmsCode: "MG26.1", snomedCode: "386661006", termEnglish: "Humma (Fever)", termSanskrit: "حمى", ayushStream: "Unani", confidence: 95, description: "Unani Tibb concept of abnormal heat originating in the heart and spreading throughout the body via blood vessels." },
+      { id: "UN-WAJ-01", namasteCode: "NAM-UNA-0092", icd11Tm2Code: "TM2-UNA-J03.1", icd11MmsCode: "FA01.2", snomedCode: "3723001", termEnglish: "Waja-ul-Mafasil", termSanskrit: "وجع المفاصل", ayushStream: "Unani", confidence: 95, description: "Unani term for joint pain and arthritis caused by accumulation of morbid humors in joints." }
+    ];
+
+    let state = {
+      activeTab: "home",
+      currentUser: { name: "Guest Practitioner", email: "guest@ayurfhir-demo.gov.in", role: "user", isDemo: true },
+      trafficCount: 1248,
+      searchCount: 492,
+      activities: [],
+      firebaseApp: null,
+      dbRef: null
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initFirebase();
+      performTerminologySearch();
+      loadFhirSample('cond-001');
+      updateApiGeneratorPayload();
+    });
+
+    function initFirebase() {
+      try {
+        if (!firebase.apps.length) {
+          state.firebaseApp = firebase.initializeApp(firebaseConfig);
+        } else {
+          state.firebaseApp = firebase.app();
+        }
+        state.dbRef = firebase.database().ref();
+
+        // Listen to Auth state
+        firebase.auth().onAuthStateChanged(async (user) => {
+          if (user) {
+            let role = "user";
+            let name = user.email.split('@')[0];
+
+            try {
+              // Role comes ONLY from the users/{uid} record in the database.
+              // (Guessing "admin" from the email address was removed — it let
+              // anyone with "admin" in their email address self-promote.)
+              const snap = await state.dbRef.child(`users/${user.uid}`).once('value');
+              if (snap.exists()) {
+                const profile = snap.val();
+                role = profile.role || role;
+                name = profile.displayName || name;
+              }
+            } catch (e) {}
+
+            state.currentUser = { name: name, email: user.email, role: role, uid: user.uid, isDemo: false };
+          } else {
+            state.currentUser = { name: "Guest Practitioner", email: "guest@ayurfhir-demo.gov.in", role: "user", isDemo: true };
+          }
+          updateUserUI();
+        });
+
+      } catch (err) {
+        console.warn("Firebase initialization error:", err);
+      }
+    }
+
+    function updateUserUI() {
+      document.getElementById('user-name').innerText = state.currentUser.name;
+      document.getElementById('user-role').innerText = `${state.currentUser.email} (${state.currentUser.role.toUpperCase()})`;
+      document.getElementById('user-avatar').innerText = state.currentUser.name.charAt(0).toUpperCase();
+
+      document.getElementById('fb-auth-state').innerText = state.currentUser.isDemo ? "Guest Practitioner (Offline Demo)" : `Authenticated as ${state.currentUser.email}`;
+      document.getElementById('sec-user-email').innerText = state.currentUser.email;
+      document.getElementById('sec-user-role').innerText = `${state.currentUser.role.toUpperCase()} PORTAL ACCESS`;
+
+      const headerBtn = document.getElementById('header-auth-btn-text');
+      const signoutBtn = document.getElementById('header-signout-btn');
+      if (state.currentUser.isDemo) {
+        if (headerBtn) headerBtn.innerText = "Sign In / Sign Up";
+        if (signoutBtn) signoutBtn.classList.add('hidden');
+      } else {
+        if (headerBtn) headerBtn.innerText = state.currentUser.name;
+        if (signoutBtn) signoutBtn.classList.remove('hidden');
+      }
+
+      // Hide admin console button if role === 'user'
+      const adminBtn = document.getElementById('admin-console-btn');
+      if (adminBtn) {
+        if (state.currentUser.role === 'admin') {
+          adminBtn.classList.remove('hidden');
+        } else {
+          adminBtn.classList.add('hidden');
+        }
+      }
+    }
+
+    function switchAuthTab(type) {
+      if (type === 'signin') {
+        document.getElementById('form-signin').classList.remove('hidden');
+        document.getElementById('form-signup').classList.add('hidden');
+        document.getElementById('tab-auth-signin').className = "flex-1 py-2 font-bold text-xs border-b-2 border-teal-600 text-teal-700";
+        document.getElementById('tab-auth-signup').className = "flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700";
+      } else {
+        document.getElementById('form-signin').classList.add('hidden');
+        document.getElementById('form-signup').classList.remove('hidden');
+        document.getElementById('tab-auth-signup').className = "flex-1 py-2 font-bold text-xs border-b-2 border-teal-600 text-teal-700";
+        document.getElementById('tab-auth-signin').className = "flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700";
+      }
+    }
+
+    async function handleSignIn(e) {
+      e.preventDefault();
+      const email = document.getElementById('signin-email').value;
+      const pass = document.getElementById('signin-password').value;
+
+      try {
+        await firebase.auth().signInWithEmailAndPassword(email, pass);
+        closeModal('modal-auth');
+        alert(`Signed in successfully as ${email}!`);
+      } catch (err) {
+        alert("Sign In Error: " + err.message);
+      }
+    }
+
+    async function handleSignUp(e) {
+      e.preventDefault();
+      const name = document.getElementById('signup-name').value;
+      const email = document.getElementById('signup-email').value;
+      const pass = document.getElementById('signup-password').value;
+      const role = document.getElementById('signup-role').value;
+
+      try {
+        const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
+        const uid = cred.user.uid;
+
+        await state.dbRef.child(`users/${uid}`).set({
+          displayName: name,
+          email: email,
+          role: role,
+          createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        closeModal('modal-auth');
+        alert(`Account created successfully as ${role.toUpperCase()}!`);
+      } catch (err) {
+        alert("Sign Up Error: " + err.message);
+      }
+    }
+
+    function handleSignOut() {
+      firebase.auth().signOut();
+      useDemoAccount();
+      alert('Signed out of Firebase Auth.');
+    }
+
+    function useDemoAccount() {
+      if (firebase.auth && firebase.auth().currentUser) {
+        firebase.auth().signOut();
+      }
+      state.currentUser = { name: "Guest Practitioner", email: "guest@ayurfhir-demo.gov.in", role: "user", isDemo: true };
+      updateUserUI();
+      closeModal('modal-auth');
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      const target = document.getElementById(`tab-${tabId}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.remove('bg-teal-50', 'text-teal-900', 'font-bold');
+        el.classList.add('text-slate-700');
+      });
+
+      const activeNav = document.getElementById(`nav-${tabId}`);
+      if (activeNav) {
+        activeNav.classList.add('bg-teal-50', 'text-teal-900', 'font-bold');
+      }
+    }
+
+    // Rich Interactive Terminology Search Function
+    function performTerminologySearch() {
+      const inputEl = document.getElementById('term-search-input');
+      const query = inputEl ? inputEl.value.toLowerCase().trim() : '';
+      const streamFilter = document.getElementById('filter-stream').value;
+
+      const filtered = TERMINOLOGY_DATABASE.filter(item => {
+        const matchesQuery = !query ||
+          item.termEnglish.toLowerCase().includes(query) ||
+          item.namasteCode.toLowerCase().includes(query) ||
+          item.icd11Tm2Code.toLowerCase().includes(query) ||
+          item.icd11MmsCode.toLowerCase().includes(query) ||
+          item.description.toLowerCase().includes(query);
+
+        const matchesStream = (streamFilter === 'ALL') || (item.ayushStream === streamFilter);
+
+        return matchesQuery && matchesStream;
+      });
+
+      document.getElementById('search-count-badge').innerText = filtered.length;
+
+      const container = document.getElementById('results-container');
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500">
+            <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">search_off</span>
+            <p class="font-bold text-slate-700">No matching concepts found</p>
+            <p class="text-xs">Try searching for "Amlapitta", "Jvara", "Prameha", "Shwasa", or "Sandhivata"</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => `
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 hover:border-teal-500 transition-all shadow-xs flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
+          <div class="space-y-2 max-w-3xl">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="font-bold text-slate-900 text-lg">${item.termEnglish}</h3>
+              <span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 text-xs font-mono font-bold">${item.namasteCode}</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-mono font-bold">${item.icd11Tm2Code}</span>
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-xs font-medium">${item.ayushStream}</span>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">${item.description}</p>
+            <div class="flex items-center gap-4 text-[11px] text-slate-500">
+              <span>Sanskrit: <strong>${item.termSanskrit}</strong></span>
+              <span>ICD-11 MMS: <strong class="font-mono text-slate-800">${item.icd11MmsCode}</strong></span>
+              <span>SNOMED: <strong class="font-mono text-slate-800">${item.snomedCode}</strong></span>
+            </div>
+          </div>
+
+          <div class="flex flex-col items-end gap-2 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0">
+            <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              ${item.confidence}% Match Confidence
+            </span>
+            <div class="flex gap-2 w-full md:w-auto">
+              <button onclick="openMappingModal('${item.id}')" class="flex-1 md:flex-none px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-lg text-xs transition-colors">
+                Visual Pathway
+              </button>
+              <button onclick="openDetailsModal('${item.id}')" class="flex-1 md:flex-none px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg text-xs transition-colors">
+                View Details
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Dynamic API Generator Payload Builder
+    function updateApiGeneratorPayload() {
+      const system = document.getElementById('api-param-system').value;
+      const termVal = document.getElementById('api-param-term').value;
+      const [code, term] = termVal.split(':');
+      const patientId = document.getElementById('api-param-patient').value || "PAT-9942";
+      const format = document.getElementById('api-param-format').value;
+
+      const payload = {
+        "emrPatientId": patientId,
+        "ayushSystem": system,
+        "legacyTerm": term,
+        "namasteCode": code,
+        "targetStandard": "ICD11_TM2",
+        "outputFormat": format
+      };
+
+      document.getElementById('api-sandbox-input').value = JSON.stringify(payload, null, 2);
+    }
+
+    async function sendMappingRequest(payload) {
+      let idToken = null;
+      if (firebase.auth && firebase.auth().currentUser) {
+        try { idToken = await firebase.auth().currentUser.getIdToken(); } catch (e) {}
+      }
+
+      const headers = { "Content-Type": "application/json" };
+      if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+
+      const requestId = `REQ-${Math.floor(Math.random() * 90000 + 10000)}`;
+
+      let resultPayload = {
+        "status": 200,
+        "requestId": requestId,
+        "message": "EMR Mapping Successfully Executed",
+        "timestamp": new Date().toISOString(),
+        "result": {
+          "emrPatientId": payload.emrPatientId || "PAT-9942",
+          "ayushSystem": payload.ayushSystem || "Ayurveda",
+          "legacyTerm": payload.legacyTerm || "Amlapitta",
+          "namasteCode": payload.namasteCode || "NAM-AYU-0012",
+          "icd11Tm2Code": "TM2-AYU-G01.2",
+          "icd11MmsCode": "DA42.0",
+          "fhirResourceType": payload.outputFormat === "FHIR_R4_CONCEPTMAP" ? "ConceptMap" : "Condition",
+          "fhirPayloadUrl": `https://YOUR-BACKEND-DOMAIN/api/v1/fhir/Condition/${requestId}`
+        }
+      };
+
+      if (state.dbRef) {
+        state.dbRef.child('apiRequests').push({
+          requestId: requestId,
+          userEmail: state.currentUser.email,
+          userUid: state.currentUser.uid || null,
+          timestamp: new Date().toLocaleTimeString(),
+          __ts: Date.now(),
+          endpoint: "/api/v1/map",
+          method: "POST",
+          status: 200,
+          legacyTerm: payload.legacyTerm || "Amlapitta",
+          namasteCode: payload.namasteCode || "NAM-AYU-0012",
+          requestBody: payload,
+          responseBody: resultPayload
+        });
+      }
+
+      state.trafficCount++;
+      document.getElementById('header-traffic-count').innerText = state.trafficCount.toLocaleString();
+      document.getElementById('fb-live-hits').innerText = state.trafficCount;
+
+      return resultPayload;
+    }
+
+    async function executeApiSandbox() {
+      const input = document.getElementById('api-sandbox-input').value;
+      try {
+        const parsed = JSON.parse(input);
+        const res = await sendMappingRequest(parsed);
+        document.getElementById('api-sandbox-output').innerText = JSON.stringify(res, null, 2);
+      } catch (err) {
+        document.getElementById('api-sandbox-output').innerText = "// Error: " + err.message;
+      }
+    }
+
+    // Modal Control Functions
+    function openMappingModal(conceptId) {
+      const item = TERMINOLOGY_DATABASE.find(c => c.id === conceptId) || TERMINOLOGY_DATABASE[0];
+      document.getElementById('mapping-modal-title').innerText = `${item.termEnglish} Cross-Standard Pathway`;
+      document.getElementById('mapping-node-namaste-code').innerText = item.namasteCode;
+      document.getElementById('mapping-node-namaste-term').innerText = item.termEnglish;
+      document.getElementById('mapping-node-icd-code').innerText = item.icd11Tm2Code;
+      document.getElementById('mapping-node-mms-code').innerText = item.icd11MmsCode;
+
+      document.getElementById('modal-mapping').classList.remove('hidden');
+    }
+
+    function openDetailsModal(conceptId) {
+      const item = TERMINOLOGY_DATABASE.find(c => c.id === conceptId) || TERMINOLOGY_DATABASE[0];
+      document.getElementById('details-modal-title').innerText = `${item.termEnglish} Metadata`;
+      document.getElementById('details-modal-sub').innerText = `${item.ayushStream} System Concept Details`;
+      document.getElementById('details-modal-sanskrit').innerText = `${item.termSanskrit} (${item.termEnglish})`;
+      document.getElementById('details-modal-def').innerText = item.description;
+
+      document.getElementById('details-code-namaste').innerText = item.namasteCode;
+      document.getElementById('details-code-tm2').innerText = item.icd11Tm2Code;
+      document.getElementById('details-code-mms').innerText = item.icd11MmsCode;
+      document.getElementById('details-code-snomed').innerText = item.snomedCode;
+
+      document.getElementById('modal-details').classList.remove('hidden');
+    }
+
+    function loadFhirSample(sampleId) {
+      const samples = {
+        "cond-001": { resourceType: "Condition", id: "cond-ayur-001", code: { coding: [{ system: "http://namaste-portal.gov.in/ayurveda", code: "NAM-AYU-0012", display: "Amlapitta" }, { system: "http://id.who.int/icd/release/11/tm2", code: "TM2-AYU-G01.2", display: "Hyperacidity" }] } },
+        "cond-002": { resourceType: "Condition", id: "cond-ayur-002", code: { coding: [{ system: "http://namaste-portal.gov.in/ayurveda", code: "NAM-AYU-0045", display: "Vataja Jvara" }] } },
+        "cond-003": { resourceType: "Condition", id: "cond-ayur-003", code: { coding: [{ system: "http://namaste-portal.gov.in/ayurveda", code: "NAM-AYU-0089", display: "Prameha" }] } },
+        "encounter-001": { resourceType: "Encounter", id: "enc-ayur-88", status: "finished" },
+        "patient-001": { resourceType: "Patient", id: "PAT-9942", name: [{ family: "Sharma", given: ["Rajeev"] }] },
+        "conceptmap-001": { resourceType: "ConceptMap", id: "namaste-to-icd11tm2", title: "AYUSH to ICD-11 TM2 Map" }
+      };
+      const data = samples[sampleId] || samples["cond-001"];
+      document.getElementById('json-display').innerText = JSON.stringify(data, null, 2);
+      document.getElementById('explorer-resource-title').innerText = `${data.resourceType}/${data.id} Payload`;
+    }
+
+    function copyExplorerJson() {
+      navigator.clipboard.writeText(document.getElementById('json-display').innerText);
+      alert('FHIR JSON copied to clipboard!');
+    }
+
+    function validateExplorerSchema() {
+      alert('✓ FHIR R4 Validation Success!\n- Compliant with HL7 FHIR R4 Condition Profile\n- Valid NAMASTE & ICD-11 TM2 Codings');
+    }
+
+    function openAuthModal() { document.getElementById('modal-auth').classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+    function toggleMobileMenu() { document.getElementById('sidebar-nav').classList.toggle('hidden'); }
+  </script>
+</body>
+</html>

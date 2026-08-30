@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Console - NAMASTE to ICD-11 (TM2) Interoperability Platform</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+  <!-- Google Material Symbols Outlined -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+
+  <!-- Firebase Web SDK v10 (Compat CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0f172a",
+            "ayush-teal": "#006a61",
+            "ayush-mint": "#89f5e7"
+          },
+          borderRadius: {
+            "DEFAULT": "0.375rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem"
+          },
+          spacing: {
+            "sidebar-width": "260px"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F8FAFC;
+    }
+    .syntax-string { color: #0090a9; }
+    .syntax-number { color: #2563eb; }
+    .syntax-boolean { color: #dc2626; }
+    .syntax-null { color: #64748b; }
+    .syntax-key { color: #0f172a; font-weight: 600; }
+    .code-bg { background-color: #0f172a; }
+    .modal-backdrop {
+      background-color: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+<body class="h-full text-slate-800 antialiased flex flex-col md:flex-row overflow-x-hidden">
+
+  <!-- ==================== AUTH GUARD / LOGIN & ACCESS DENIED OVERLAY ==================== -->
+  <div id="auth-guard-modal" class="fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-8 space-y-6 shadow-2xl relative">
+      
+      <!-- HEADER -->
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-900 to-teal-900 text-white flex items-center justify-center mx-auto shadow-lg">
+          <span class="material-symbols-outlined text-3xl">admin_panel_settings</span>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-900">Admin Console Access</h2>
+        <p class="text-xs text-slate-500">NAMASTE to ICD-11 TM2 Interoperability Platform</p>
+      </div>
+
+      <!-- ACCESS DENIED CARD (Hidden by default, shown if logged in as user) -->
+      <div id="access-denied-box" class="hidden p-4 bg-red-50 border border-red-200 rounded-xl space-y-3 text-xs text-red-800">
+        <div class="flex items-center gap-2 font-bold text-red-700 text-sm">
+          <span class="material-symbols-outlined text-base">block</span> Access Denied: Admin Privileges Required
+        </div>
+        <p class="leading-relaxed">
+          You are currently signed in as <strong id="denied-user-email">user@hospital.gov.in</strong> with the <span class="bg-red-200 text-red-900 px-1.5 py-0.5 rounded font-bold uppercase text-[10px]">USER / PRACTITIONER</span> role. Only System Admins can access the Admin Console.
+        </p>
+        <div class="flex gap-2 pt-2">
+          <button onclick="handleAdminLogout()" class="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs transition-colors">
+            Sign Out & Switch Account
+          </button>
+          <a href="index.html" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-center font-bold rounded-lg text-xs transition-colors">
+            Return to User Portal
+          </a>
+        </div>
+      </div>
+
+      <!-- LOGIN & SIGN UP FORMS CONTAINER -->
+      <div id="admin-auth-forms" class="space-y-4">
+        <!-- Auth Tabs: Sign In / Sign Up -->
+        <div class="flex border-b border-slate-200">
+          <button onclick="switchAdminAuthTab('signin')" id="tab-admin-signin" class="flex-1 py-2 font-bold text-xs border-b-2 border-slate-900 text-slate-900">
+            Admin Sign In
+          </button>
+          <button onclick="switchAdminAuthTab('signup')" id="tab-admin-signup" class="flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700">
+            Register Admin Account
+          </button>
+        </div>
+
+        <!-- SIGN IN FORM -->
+        <form id="form-admin-signin" onsubmit="handleAdminSignIn(event)" class="space-y-4 text-xs">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Admin Email Address</label>
+            <input id="admin-signin-email" type="email" required placeholder="admin@yourorg.gov.in" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 focus:bg-white transition-all" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Password</label>
+            <input id="admin-signin-password" type="password" required placeholder="••••••••" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 focus:bg-white transition-all" />
+          </div>
+
+          <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-colors shadow-md flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-base">lock_open</span> Sign In as Admin
+          </button>
+        </form>
+
+        <!-- SIGN UP FORM -->
+        <form id="form-admin-signup" onsubmit="handleAdminSignUp(event)" class="space-y-3 text-xs hidden">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Admin Full Name</label>
+            <input id="admin-signup-name" type="text" required placeholder="System Administrator" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Admin Email Address</label>
+            <input id="admin-signup-email" type="email" required placeholder="admin@yourorg.gov.in" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Password</label>
+            <input id="admin-signup-password" type="password" required minlength="6" placeholder="At least 6 characters" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+          </div>
+          <button type="submit" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition-colors">
+            Register New Admin
+          </button>
+        </form>
+
+        <p id="admin-auth-error" class="hidden text-xs text-red-600 font-semibold text-center"></p>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 text-center">
+        <button onclick="enableDemoAdminSession()" class="text-xs text-teal-600 font-semibold hover:underline flex items-center justify-center gap-1 mx-auto">
+          <span class="material-symbols-outlined text-sm">visibility</span> Enter Prototype Demo Admin Mode (Offline/Local)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SIDEBAR NAVIGATION ==================== -->
+  <aside class="w-full md:w-sidebar-width bg-white border-r border-slate-200 flex flex-col md:h-screen md:fixed left-0 top-0 z-40 shadow-sm">
+    <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-900 to-teal-900 text-white flex items-center justify-center shadow-md">
+          <span class="material-symbols-outlined text-2xl">admin_panel_settings</span>
+        </div>
+        <div>
+          <h1 class="font-bold text-slate-900 text-sm leading-tight">NAMASTE Bridge</h1>
+          <p class="text-[11px] text-slate-500 font-medium">Admin Console v1.0</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2">Monitoring</div>
+
+      <a href="#overview" onclick="switchAdminTab('overview')" id="nav-admin-overview" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-900 font-bold text-xs transition-all">
+        <span class="material-symbols-outlined text-lg">dashboard</span>
+        <span>Overview</span>
+      </a>
+
+      <a href="#requests" onclick="switchAdminTab('requests')" id="nav-admin-requests" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">electric_bolt</span>
+        <span>API Requests</span>
+      </a>
+
+      <a href="#traffic" onclick="switchAdminTab('traffic')" id="nav-admin-traffic" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">signal_cellular_alt</span>
+        <span>Live Traffic</span>
+      </a>
+
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">Data Management</div>
+
+      <a href="#terminology" onclick="switchAdminTab('terminology')" id="nav-admin-terminology" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">menu_book</span>
+        <span>Terminology</span>
+      </a>
+
+      <a href="#mappings" onclick="switchAdminTab('mappings')" id="nav-admin-mappings" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">alt_route</span>
+        <span>Mappings</span>
+      </a>
+
+      <a href="#fhir" onclick="switchAdminTab('fhir')" id="nav-admin-fhir" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">dataset_linked</span>
+        <span>FHIR Resources</span>
+      </a>
+
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">Governance & Security</div>
+
+      <a href="#users" onclick="switchAdminTab('users')" id="nav-admin-users" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">group</span>
+        <span>Users & Roles</span>
+      </a>
+
+      <a href="#audit" onclick="switchAdminTab('audit')" id="nav-admin-audit" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">policy</span>
+        <span>Audit Logs</span>
+      </a>
+
+      <a href="#health" onclick="switchAdminTab('health')" id="nav-admin-health" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">health_and_safety</span>
+        <span>System Health</span>
+      </a>
+
+      <a href="index.html" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-800 font-bold text-xs mt-4 hover:bg-teal-100 transition-all">
+        <span class="material-symbols-outlined text-base">home</span>
+        <span>Go to User Portal (index.html)</span>
+      </a>
+    </nav>
+
+    <div class="p-3 border-t border-slate-100 mt-auto bg-slate-50">
+      <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200 text-xs">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <div class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+            A
+          </div>
+          <div class="truncate">
+            <p id="admin-user-display" class="font-bold text-slate-900 truncate">Admin User</p>
+            <p id="admin-user-role" class="text-[10px] text-slate-500 truncate">Role: Super Admin</p>
+          </div>
+        </div>
+        <button onclick="handleAdminLogout()" class="text-slate-400 hover:text-red-600 p-1" title="Log Out">
+          <span class="material-symbols-outlined text-base">logout</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN CONTENT WRAPPER ==================== -->
+  <div class="flex-1 md:ml-sidebar-width flex flex-col min-h-screen">
+    <header class="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 flex items-center justify-between px-4 md:px-8">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-slate-700 text-2xl">admin_panel_settings</span>
+        <div>
+          <h2 id="admin-page-title" class="font-bold text-slate-900 text-base">Overview Dashboard</h2>
+          <p class="text-[11px] text-slate-500">Realtime EMR Interoperability Management</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 text-xs">
+        <span class="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full font-medium border border-emerald-200/60">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>System: Operational</span>
+        </span>
+
+        <span id="rtdb-status-pill" class="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-medium">
+          <span id="rtdb-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span id="rtdb-status-text">Realtime: Connected</span>
+        </span>
+
+        <button onclick="handleAdminLogout()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors">
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <div class="bg-slate-900 text-slate-300 text-xs px-4 py-2 flex items-center justify-between border-b border-slate-800">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-amber-400 text-sm">warning</span>
+        <span><strong>Demo Environment:</strong> Use synthetic healthcare data only. Do not enter real patient information.</span>
+      </div>
+      <span class="text-[11px] text-slate-400 font-mono">Standard: Ministry of AYUSH NAMASTE / WHO ICD-11 TM2</span>
+    </div>
+
+    <main class="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-8">
+
+      <!-- OVERVIEW -->
+      <section id="admin-tab-overview" class="admin-tab-content space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Realtime Statistics</h2>
+          <p class="text-xs text-slate-500">Live metrics populated directly from Firebase Realtime Database.</p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Total API Requests</span>
+            <p id="stat-total-requests" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-emerald-600 uppercase">Successful Requests</span>
+            <p id="stat-successful-requests" class="text-2xl font-extrabold text-emerald-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-red-500 uppercase">Failed Requests</span>
+            <p id="stat-failed-requests" class="text-2xl font-extrabold text-red-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-teal-600 uppercase">Successful Mappings</span>
+            <p id="stat-successful-mappings" class="text-2xl font-extrabold text-teal-700">0</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-900 text-base">Recent API Requests Stream (Firebase RTDB Listener)</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-2.5 px-3">Timestamp</th>
+                  <th class="py-2.5 px-3">Request ID</th>
+                  <th class="py-2.5 px-3">User</th>
+                  <th class="py-2.5 px-3">Endpoint</th>
+                  <th class="py-2.5 px-3">Term / Code</th>
+                  <th class="py-2.5 px-3">Status</th>
+                  <th class="py-2.5 px-3">Action</th>
+                </tr>
+              </thead>
+              <tbody id="overview-requests-body" class="divide-y divide-slate-100">
+                <tr><td colspan="7" class="py-6 text-center text-slate-400">Listening for live requests from <code>apiRequests/</code> node...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- REQUESTS MONITOR -->
+      <section id="admin-tab-requests" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Live API Request Monitor</h2>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3">Time</th>
+                  <th class="py-3 px-3">Request ID</th>
+                  <th class="py-3 px-3">User Email</th>
+                  <th class="py-3 px-3">Endpoint</th>
+                  <th class="py-3 px-3">AYUSH Term</th>
+                  <th class="py-3 px-3">NAMASTE Code</th>
+                  <th class="py-3 px-3">Status</th>
+                  <th class="py-3 px-3">Latency</th>
+                  <th class="py-3 px-3">Details</th>
+                </tr>
+              </thead>
+              <tbody id="full-requests-table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIVE TRAFFIC -->
+      <section id="admin-tab-traffic" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Live Traffic</h2>
+          <p class="text-xs text-slate-500">Real-time request volume streamed from the <code>apiRequests/</code> RTDB node.</p>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Requests (last hour)</span>
+            <p id="traffic-last-hour" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Unique Users</span>
+            <p id="traffic-unique-users" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Busiest Endpoint</span>
+            <p id="traffic-top-endpoint" class="text-lg font-extrabold text-slate-900 font-mono">—</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">Requests per minute (last 20 min)</h3>
+          <div id="traffic-sparkline" class="flex items-end gap-1 h-32"></div>
+        </div>
+      </section>
+
+      <!-- TERMINOLOGY -->
+      <section id="admin-tab-terminology" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">Terminology Catalog</h2>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3">English Term</th>
+                  <th class="py-3 px-3">Sanskrit Name</th>
+                  <th class="py-3 px-3">Stream</th>
+                  <th class="py-3 px-3">NAMASTE Code</th>
+                  <th class="py-3 px-3">ICD-11 TM2</th>
+                </tr>
+              </thead>
+              <tbody id="admin-terminology-table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- MAPPINGS -->
+      <section id="admin-tab-mappings" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">Cross-Standard Mappings</h2>
+        <p class="text-xs text-slate-500 -mt-4">NAMASTE ↔ ICD-11 TM2 ↔ ICD-11 MMS ↔ SNOMED CT equivalence table.</p>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3">Term</th>
+                  <th class="py-3 px-3">NAMASTE</th>
+                  <th class="py-3 px-3">ICD-11 TM2</th>
+                  <th class="py-3 px-3">ICD-11 MMS</th>
+                  <th class="py-3 px-3">SNOMED CT</th>
+                  <th class="py-3 px-3">Confidence</th>
+                </tr>
+              </thead>
+              <tbody id="admin-mappings-table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- FHIR RESOURCES -->
+      <section id="admin-tab-fhir" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">FHIR Resources</h2>
+        <p class="text-xs text-slate-500 -mt-4">Sample FHIR R4 resources generated by the terminology bridge.</p>
+        <div id="admin-fhir-list" class="grid md:grid-cols-2 gap-4"></div>
+      </section>
+
+      <!-- USERS & ROLES -->
+      <section id="admin-tab-users" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">Users & Roles</h2>
+        <p class="text-xs text-slate-500 -mt-4">Live from the <code>users/</code> RTDB node. Toggling a role writes directly to the database.</p>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3">Name</th>
+                  <th class="py-3 px-3">Email</th>
+                  <th class="py-3 px-3">Role</th>
+                  <th class="py-3 px-3">Created</th>
+                  <th class="py-3 px-3">Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-table-body" class="divide-y divide-slate-100">
+                <tr><td colspan="5" class="py-6 text-center text-slate-400">Loading users…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- AUDIT LOGS -->
+      <section id="admin-tab-audit" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">Audit Logs</h2>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3">Timestamp</th>
+                  <th class="py-3 px-3">Admin Email</th>
+                  <th class="py-3 px-3">Action</th>
+                  <th class="py-3 px-3">Resource Target</th>
+                  <th class="py-3 px-3">Details</th>
+                </tr>
+              </thead>
+              <tbody id="admin-audit-table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SYSTEM HEALTH -->
+      <section id="admin-tab-health" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">System Health</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Realtime DB</span>
+            <p id="health-rtdb" class="text-lg font-extrabold text-slate-400">Checking…</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Auth Session</span>
+            <p id="health-auth" class="text-lg font-extrabold text-slate-400">Checking…</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Registered Users</span>
+            <p id="health-user-count" class="text-2xl font-extrabold text-slate-900">—</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Logged API Calls</span>
+            <p id="health-request-count" class="text-2xl font-extrabold text-slate-900">—</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- REQUEST DETAILS MODAL (Inspect) -->
+  <div id="modal-request-details" class="fixed inset-0 modal-backdrop z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+      <button onclick="closeModal('modal-request-details')" class="absolute right-4 top-4 text-slate-400 hover:text-slate-700">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <div class="space-y-1">
+        <span class="px-2.5 py-0.5 rounded bg-slate-100 text-slate-800 text-xs font-bold">API Request Inspector</span>
+        <h3 id="request-details-title" class="text-xl font-bold text-slate-900">REQ-00000</h3>
+        <p id="request-details-sub" class="text-xs text-slate-500">user@example.com · /api/v1/map</p>
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs font-bold text-slate-700">Request Body</p>
+        <pre id="request-details-body" class="code-bg text-emerald-200 text-[11px] p-4 rounded-xl overflow-x-auto font-mono"></pre>
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs font-bold text-slate-700">Response Body</p>
+        <pre id="request-details-response" class="code-bg text-teal-200 text-[11px] p-4 rounded-xl overflow-x-auto font-mono"></pre>
+      </div>
+      <div class="flex justify-end">
+        <button onclick="closeModal('modal-request-details')" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT ENGINE -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA2l2wuVvBJ8i1SBPFIPOGz2JwWDDGjAqk",
+      authDomain: "namaste-1e265.firebaseapp.com",
+      databaseURL: "https://namaste-1e265-default-rtdb.firebaseio.com",
+      projectId: "namaste-1e265",
+      storageBucket: "namaste-1e265.firebasestorage.app",
+      messagingSenderId: "59383012302",
+      appId: "1:59383012302:web:9f2d37b84891bc4225e99f"
+    };
+
+    // Same reference dataset the user portal (index.html) uses, so the
+    // Terminology and Mappings tabs show real, consistent data instead of
+    // being empty or hardcoded to a single row.
+    const TERMINOLOGY_DATABASE = [
+      { id: "AY-AML-01", namasteCode: "NAM-AYU-0012", icd11Tm2Code: "TM2-AYU-G01.2", icd11MmsCode: "DA42.0", snomedCode: "62315008", termEnglish: "Amlapitta", termSanskrit: "अम्लपित्तम्", ayushStream: "Ayurveda", confidence: 98 },
+      { id: "AY-JVA-01", namasteCode: "NAM-AYU-0045", icd11Tm2Code: "TM2-AYU-F04.1", icd11MmsCode: "MG26", snomedCode: "386661006", termEnglish: "Jvara (Fever)", termSanskrit: "ज्वरः", ayushStream: "Ayurveda", confidence: 96 },
+      { id: "AY-PRM-01", namasteCode: "NAM-AYU-0089", icd11Tm2Code: "TM2-AYU-M08.3", icd11MmsCode: "5A11", snomedCode: "44054006", termEnglish: "Prameha (Madhumeha)", termSanskrit: "प्रमेहः (मधुमेहः)", ayushStream: "Ayurveda", confidence: 97 },
+      { id: "AY-KAS-01", namasteCode: "NAM-AYU-0102", icd11Tm2Code: "TM2-AYU-R02.5", icd11MmsCode: "MD11", snomedCode: "49727002", termEnglish: "Kasa (Cough)", termSanskrit: "कासः", ayushStream: "Ayurveda", confidence: 95 },
+      { id: "AY-SHW-01", namasteCode: "NAM-AYU-0115", icd11Tm2Code: "TM2-AYU-R05.2", icd11MmsCode: "CA23", snomedCode: "195967001", termEnglish: "Shwasa (Bronchial Asthma)", termSanskrit: "श्वासः", ayushStream: "Ayurveda", confidence: 96 },
+      { id: "AY-SND-01", namasteCode: "NAM-AYU-0130", icd11Tm2Code: "TM2-AYU-J01.8", icd11MmsCode: "FA01", snomedCode: "396275006", termEnglish: "Sandhivata (Osteoarthritis)", termSanskrit: "सन्धिवातः", ayushStream: "Ayurveda", confidence: 94 },
+      { id: "SD-AZH-01", namasteCode: "NAM-SID-0021", icd11Tm2Code: "TM2-SID-G04.1", icd11MmsCode: "DA42.1", snomedCode: "197480006", termEnglish: "Azhal Noy", termSanskrit: "அழல் நோய்", ayushStream: "Siddha", confidence: 94 },
+      { id: "SD-VAT-01", namasteCode: "NAM-SID-0034", icd11Tm2Code: "TM2-SID-J02.4", icd11MmsCode: "FA00", snomedCode: "201834006", termEnglish: "Vatha Noy", termSanskrit: "வாத நோய்", ayushStream: "Siddha", confidence: 93 },
+      { id: "UN-HUM-01", namasteCode: "NAM-UNA-0078", icd11Tm2Code: "TM2-UNA-F02.8", icd11MmsCode: "MG26.1", snomedCode: "386661006", termEnglish: "Humma (Fever)", termSanskrit: "حمى", ayushStream: "Unani", confidence: 95 },
+      { id: "UN-WAJ-01", namasteCode: "NAM-UNA-0092", icd11Tm2Code: "TM2-UNA-J03.1", icd11MmsCode: "FA01.2", snomedCode: "3723001", termEnglish: "Waja-ul-Mafasil", termSanskrit: "وجع المفاصل", ayushStream: "Unani", confidence: 95 }
+    ];
+
+    const FHIR_SAMPLES = [
+      { resourceType: "Condition", id: "cond-ayur-001", code: { coding: [{ system: "http://namaste-portal.gov.in/ayurveda", code: "NAM-AYU-0012", display: "Amlapitta" }, { system: "http://id.who.int/icd/release/11/tm2", code: "TM2-AYU-G01.2", display: "Hyperacidity" }] } },
+      { resourceType: "Condition", id: "cond-ayur-002", code: { coding: [{ system: "http://namaste-portal.gov.in/ayurveda", code: "NAM-AYU-0045", display: "Vataja Jvara" }] } },
+      { resourceType: "Encounter", id: "enc-ayur-88", status: "finished" },
+      { resourceType: "Patient", id: "PAT-9942", name: [{ family: "Sharma", given: ["Rajeev"] }] },
+      { resourceType: "ConceptMap", id: "namaste-to-icd11tm2", title: "AYUSH to ICD-11 TM2 Map" }
+    ];
+
+    let adminState = {
+      activeTab: "overview",
+      currentUser: null,
+      apiRequests: [],
+      users: [],
+      auditLogs: [],
+      firebaseApp: null,
+      dbRef: null
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initAdminFirebase();
+      renderAdminTerminology();
+      renderMappings();
+      renderFhirResources();
+      renderAdminAudit();
+    });
+
+    function initAdminFirebase() {
+      try {
+        // Reuse the existing app instance if index.html already initialized it
+        // in this browser session (same Firebase project = same Auth session).
+        adminState.firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+        adminState.dbRef = firebase.database().ref();
+
+        // This is the piece that was missing: without this listener, admin.html
+        // never knew whether a real Firebase user was signed in, so it could not
+        // check their role and always fell back to the static/local login box.
+        firebase.auth().onAuthStateChanged(async (user) => {
+          if (!user) {
+            showAdminLoginForms();
+            return;
+          }
+          try {
+            const snap = await adminState.dbRef.child(`users/${user.uid}`).once('value');
+            const profile = snap.exists() ? snap.val() : null;
+            const role = profile && profile.role ? profile.role : 'user';
+
+            if (role === 'admin') {
+              adminState.currentUser = {
+                email: user.email,
+                uid: user.uid,
+                role: 'admin',
+                name: (profile && profile.displayName) || user.email.split('@')[0]
+              };
+              grantAdminAccess();
+            } else {
+              denyAdminAccess(user.email);
+            }
+          } catch (err) {
+            console.error('Role lookup failed:', err);
+            denyAdminAccess(user.email);
+          }
+        });
+
+        // This is the second missing piece: index.html's sendMappingRequest()
+        // pushes every API call into the `apiRequests/` RTDB node, but admin.html
+        // never attached a listener to that node, so nothing ever showed up here.
+        adminState.dbRef.child('apiRequests').limitToLast(200).on('value', (snapshot) => {
+          const data = snapshot.val() || {};
+          adminState.apiRequests = Object.values(data).sort((a, b) => (b.__ts || 0) - (a.__ts || 0));
+          renderOverviewRequests();
+          renderFullRequestsTable();
+          renderLiveTraffic();
+          updateOverviewStats();
+          updateHealthCounts();
+        }, (err) => {
+          console.error('apiRequests listener error (check DB rules):', err);
+        });
+
+        // Powers the "Users & Roles" tab — requires the admin-list read
+        // rule on /users in database.rules.json.
+        adminState.dbRef.child('users').on('value', (snapshot) => {
+          const data = snapshot.val() || {};
+          adminState.users = Object.entries(data).map(([uid, profile]) => ({ uid, ...profile }));
+          renderUsersAndRoles();
+          updateHealthCounts();
+        }, (err) => {
+          console.error('users listener error (check DB rules):', err);
+        });
+
+        // Firebase's built-in connection-state path, used for System Health.
+        firebase.database().ref('.info/connected').on('value', (snap) => {
+          const connected = snap.val() === true;
+          setRtdbStatus(connected);
+        });
+
+      } catch (err) {
+        console.warn("Admin Firebase init error:", err);
+      }
+    }
+
+    function setRtdbStatus(connected) {
+      const dot = document.getElementById('rtdb-status-dot');
+      const text = document.getElementById('rtdb-status-text');
+      const pill = document.getElementById('rtdb-status-pill');
+      const health = document.getElementById('health-rtdb');
+      if (text) text.innerText = connected ? 'Realtime: Connected' : 'Realtime: Disconnected';
+      if (pill) pill.className = `flex items-center gap-1.5 px-3 py-1 rounded-full font-medium ${connected ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`;
+      if (dot) dot.className = `w-2 h-2 rounded-full ${connected ? 'bg-emerald-500 animate-ping' : 'bg-red-500'}`;
+      if (health) {
+        health.innerText = connected ? 'Connected' : 'Disconnected';
+        health.className = `text-lg font-extrabold ${connected ? 'text-emerald-600' : 'text-red-600'}`;
+      }
+    }
+
+    function updateHealthCounts() {
+      const authEl = document.getElementById('health-auth');
+      const userCountEl = document.getElementById('health-user-count');
+      const reqCountEl = document.getElementById('health-request-count');
+      if (authEl) {
+        const signedIn = firebase.auth && firebase.auth().currentUser;
+        authEl.innerText = signedIn ? 'Active' : (adminState.currentUser ? 'Demo Mode' : 'None');
+        authEl.className = `text-lg font-extrabold ${signedIn || adminState.currentUser ? 'text-emerald-600' : 'text-slate-400'}`;
+      }
+      if (userCountEl) userCountEl.innerText = adminState.users.length.toLocaleString();
+      if (reqCountEl) reqCountEl.innerText = adminState.apiRequests.length.toLocaleString();
+    }
+
+    function grantAdminAccess() {
+      document.getElementById('auth-guard-modal').classList.add('hidden');
+      document.getElementById('access-denied-box').classList.add('hidden');
+      document.getElementById('admin-auth-forms').classList.remove('hidden');
+      document.getElementById('admin-user-display').innerText = adminState.currentUser.name;
+      document.getElementById('admin-user-role').innerText = `Role: ${adminState.currentUser.role.toUpperCase()}`;
+    }
+
+    function denyAdminAccess(email) {
+      document.getElementById('auth-guard-modal').classList.remove('hidden');
+      document.getElementById('admin-auth-forms').classList.add('hidden');
+      document.getElementById('access-denied-box').classList.remove('hidden');
+      document.getElementById('denied-user-email').innerText = email;
+    }
+
+    function showAdminLoginForms() {
+      document.getElementById('auth-guard-modal').classList.remove('hidden');
+      document.getElementById('access-denied-box').classList.add('hidden');
+      document.getElementById('admin-auth-forms').classList.remove('hidden');
+    }
+
+    function showAdminAuthError(msg) {
+      const el = document.getElementById('admin-auth-error');
+      if (!el) return;
+      el.innerText = msg;
+      el.classList.remove('hidden');
+    }
+
+    function updateOverviewStats() {
+      const total = adminState.apiRequests.length;
+      const successful = adminState.apiRequests.filter(r => r.status === 200).length;
+      const failed = total - successful;
+      const totalEl = document.getElementById('stat-total-requests');
+      const okEl = document.getElementById('stat-successful-requests');
+      const failEl = document.getElementById('stat-failed-requests');
+      const mapEl = document.getElementById('stat-successful-mappings');
+      if (totalEl) totalEl.innerText = total.toLocaleString();
+      if (okEl) okEl.innerText = successful.toLocaleString();
+      if (failEl) failEl.innerText = failed.toLocaleString();
+      if (mapEl) mapEl.innerText = successful.toLocaleString();
+    }
+
+    function switchAdminAuthTab(type) {
+      if (type === 'signin') {
+        document.getElementById('form-admin-signin').classList.remove('hidden');
+        document.getElementById('form-admin-signup').classList.add('hidden');
+        document.getElementById('tab-admin-signin').className = "flex-1 py-2 font-bold text-xs border-b-2 border-slate-900 text-slate-900";
+        document.getElementById('tab-admin-signup').className = "flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700";
+      } else {
+        document.getElementById('form-admin-signin').classList.add('hidden');
+        document.getElementById('form-admin-signup').classList.remove('hidden');
+        document.getElementById('tab-admin-signup').className = "flex-1 py-2 font-bold text-xs border-b-2 border-slate-900 text-slate-900";
+        document.getElementById('tab-admin-signin').className = "flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700";
+      }
+    }
+
+    async function handleAdminSignIn(e) {
+      e.preventDefault();
+      const email = document.getElementById('admin-signin-email').value;
+      const pass = document.getElementById('admin-signin-password').value;
+
+      try {
+        // Sign in against the SAME Firebase Auth project index.html uses.
+        // The onAuthStateChanged listener in initAdminFirebase() fires next,
+        // looks up this uid's role in users/{uid}, and grants or denies access.
+        await firebase.auth().signInWithEmailAndPassword(email, pass);
+      } catch (err) {
+        showAdminAuthError("Sign In Error: " + err.message);
+      }
+    }
+
+    async function handleAdminSignUp(e) {
+      e.preventDefault();
+      const name = document.getElementById('admin-signup-name').value;
+      const email = document.getElementById('admin-signup-email').value;
+      const pass = document.getElementById('admin-signup-password').value;
+
+      try {
+        const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
+        // Write the role directly as 'admin' since this form is specifically
+        // the admin registration form. onAuthStateChanged will pick this up
+        // and grant access automatically once the write completes.
+        await adminState.dbRef.child(`users/${cred.user.uid}`).set({
+          displayName: name,
+          email: email,
+          role: 'admin',
+          createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      } catch (err) {
+        showAdminAuthError("Sign Up Error: " + err.message);
+      }
+    }
+
+    function enableDemoAdminSession() {
+      // Local-only prototype bypass — does NOT touch Firebase Auth or the
+      // database, so it never appears as a "real" signed-in user anywhere.
+      adminState.currentUser = { email: "admin@demo.gov.in", role: "admin", name: "Demo Admin" };
+      document.getElementById('admin-user-display').innerText = "Demo Admin";
+      document.getElementById('admin-user-role').innerText = "Role: ADMIN (Offline Demo)";
+      document.getElementById('auth-guard-modal').classList.add('hidden');
+    }
+
+    function handleAdminLogout() {
+      adminState.currentUser = null;
+      firebase.auth().signOut().catch((err) => console.error('Logout failed:', err));
+      document.getElementById('admin-user-display').innerText = '';
+      document.getElementById('admin-user-role').innerText = '';
+      showAdminLoginForms();
+    }
+
+    const ADMIN_TAB_TITLES = {
+      overview: "Overview Dashboard",
+      requests: "Live API Request Monitor",
+      traffic: "Live Traffic",
+      terminology: "Terminology Catalog",
+      mappings: "Cross-Standard Mappings",
+      fhir: "FHIR Resources",
+      users: "Users & Roles",
+      audit: "Audit Logs",
+      health: "System Health"
+    };
+
+    function switchAdminTab(tabId) {
+      document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
+      const target = document.getElementById(`admin-tab-${tabId}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.admin-nav-item').forEach(el => {
+        el.classList.remove('bg-teal-50', 'text-teal-900', 'font-bold');
+        el.classList.add('text-slate-700', 'font-medium');
+      });
+      const activeNav = document.getElementById(`nav-admin-${tabId}`);
+      if (activeNav) {
+        activeNav.classList.add('bg-teal-50', 'text-teal-900', 'font-bold');
+        activeNav.classList.remove('text-slate-700', 'font-medium');
+      }
+
+      const titleEl = document.getElementById('admin-page-title');
+      if (titleEl && ADMIN_TAB_TITLES[tabId]) titleEl.innerText = ADMIN_TAB_TITLES[tabId];
+
+      if (tabId === 'traffic') renderLiveTraffic();
+      if (tabId === 'users') renderUsersAndRoles();
+      if (tabId === 'health') updateHealthCounts();
+    }
+
+    function renderOverviewRequests() {
+      const tbody = document.getElementById('overview-requests-body');
+      if (!tbody) return;
+      if (adminState.apiRequests.length === 0) return;
+      tbody.innerHTML = adminState.apiRequests.slice(0, 5).map((req, idx) => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3 font-mono text-slate-500">${req.timestamp || ''}</td>
+          <td class="py-2.5 px-3 font-mono font-bold text-slate-900">${req.requestId || ''}</td>
+          <td class="py-2.5 px-3 text-slate-600">${req.userEmail || ''}</td>
+          <td class="py-2.5 px-3 font-mono text-slate-700">${req.endpoint || ''}</td>
+          <td class="py-2.5 px-3 font-medium text-slate-900">${req.legacyTerm || ''} (${req.namasteCode || ''})</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${req.status === 200 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">${req.status || 200} ${req.status === 200 ? 'OK' : 'ERR'}</span></td>
+          <td class="py-2.5 px-3"><button onclick="openRequestDetailsModal(${idx})" class="text-teal-600 font-bold hover:underline">Inspect</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderFullRequestsTable() {
+      const tbody = document.getElementById('full-requests-table-body');
+      if (!tbody) return;
+      if (adminState.apiRequests.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-slate-400">No API requests logged yet. Try the API sandbox in the user portal.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = adminState.apiRequests.map((req, idx) => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3 font-mono text-slate-500">${req.timestamp || ''}</td>
+          <td class="py-2.5 px-3 font-mono font-bold text-slate-900">${req.requestId || ''}</td>
+          <td class="py-2.5 px-3 text-slate-600">${req.userEmail || ''}</td>
+          <td class="py-2.5 px-3 font-mono text-slate-700">${req.endpoint || ''}</td>
+          <td class="py-2.5 px-3 font-medium text-slate-900">${req.legacyTerm || ''}</td>
+          <td class="py-2.5 px-3 font-mono text-teal-700">${req.namasteCode || ''}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${req.status === 200 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">${req.status || 200} ${req.status === 200 ? 'OK' : 'ERR'}</span></td>
+          <td class="py-2.5 px-3 font-mono text-slate-500">${req.latencyMs || 42} ms</td>
+          <td class="py-2.5 px-3"><button onclick="openRequestDetailsModal(${idx})" class="text-teal-600 font-bold hover:underline">Inspect</button></td>
+        </tr>
+      `).join('');
+    }
+
+    // Wired up to the "Inspect" buttons above — this was previously a plain
+    // <button> with no onclick at all, so nothing happened when clicked.
+    function openRequestDetailsModal(idx) {
+      const req = adminState.apiRequests[idx];
+      if (!req) return;
+      document.getElementById('request-details-title').innerText = req.requestId || 'Unknown Request';
+      document.getElementById('request-details-sub').innerText = `${req.userEmail || 'unknown user'} · ${req.endpoint || ''} · ${req.timestamp || ''}`;
+      document.getElementById('request-details-body').innerText = JSON.stringify(req.requestBody || {}, null, 2);
+      document.getElementById('request-details-response').innerText = JSON.stringify(req.responseBody || {}, null, 2);
+      document.getElementById('modal-request-details').classList.remove('hidden');
+    }
+
+    function renderAdminTerminology() {
+      const tbody = document.getElementById('admin-terminology-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = TERMINOLOGY_DATABASE.map(item => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3 font-bold text-slate-900">${item.termEnglish}</td>
+          <td class="py-2.5 px-3 text-slate-700">${item.termSanskrit}</td>
+          <td class="py-2.5 px-3"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded">${item.ayushStream}</span></td>
+          <td class="py-2.5 px-3 font-mono text-teal-700 font-bold">${item.namasteCode}</td>
+          <td class="py-2.5 px-3 font-mono text-emerald-700 font-bold">${item.icd11Tm2Code}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderMappings() {
+      const tbody = document.getElementById('admin-mappings-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = TERMINOLOGY_DATABASE.map(item => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3 font-bold text-slate-900">${item.termEnglish}</td>
+          <td class="py-2.5 px-3 font-mono text-slate-700">${item.namasteCode}</td>
+          <td class="py-2.5 px-3 font-mono text-teal-700">${item.icd11Tm2Code}</td>
+          <td class="py-2.5 px-3 font-mono text-emerald-700">${item.icd11MmsCode}</td>
+          <td class="py-2.5 px-3 font-mono text-slate-500">${item.snomedCode}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">${item.confidence}%</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderFhirResources() {
+      const container = document.getElementById('admin-fhir-list');
+      if (!container) return;
+      container.innerHTML = FHIR_SAMPLES.map(res => `
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-900 text-sm">${res.resourceType}/${res.id}</span>
+            <span class="text-[10px] font-bold text-slate-400 uppercase">FHIR R4</span>
+          </div>
+          <pre class="code-bg text-emerald-200 text-[10px] p-3 rounded-lg overflow-x-auto font-mono max-h-40">${JSON.stringify(res, null, 2)}</pre>
+        </div>
+      `).join('');
+    }
+
+    function renderUsersAndRoles() {
+      const tbody = document.getElementById('admin-users-table-body');
+      if (!tbody) return;
+      if (adminState.users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400">No registered users yet, or this account lacks admin read access (check database rules).</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = adminState.users.map(u => {
+        const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—';
+        const isAdmin = u.role === 'admin';
+        return `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3 font-semibold text-slate-900">${u.displayName || '(no name)'}</td>
+          <td class="py-2.5 px-3 text-slate-600">${u.email || ''}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isAdmin ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}">${u.role || 'user'}</span></td>
+          <td class="py-2.5 px-3 font-mono text-slate-500">${created}</td>
+          <td class="py-2.5 px-3">
+            <button onclick="toggleUserRole('${u.uid}', '${isAdmin ? 'user' : 'admin'}')" class="text-teal-600 font-bold hover:underline text-xs">
+              ${isAdmin ? 'Revoke Admin' : 'Make Admin'}
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function toggleUserRole(uid, newRole) {
+      if (!adminState.dbRef) return;
+      if (!confirm(`Set this user's role to "${newRole}"?`)) return;
+      try {
+        await adminState.dbRef.child(`users/${uid}/role`).set(newRole);
+      } catch (err) {
+        alert('Could not update role: ' + err.message + '\n(This write is blocked for non-admins by database.rules.json.)');
+      }
+    }
+
+    function renderLiveTraffic() {
+      const hourEl = document.getElementById('traffic-last-hour');
+      const usersEl = document.getElementById('traffic-unique-users');
+      const endpointEl = document.getElementById('traffic-top-endpoint');
+      const sparkline = document.getElementById('traffic-sparkline');
+      if (!hourEl || !sparkline) return;
+
+      const now = Date.now();
+      const oneHourAgo = now - 60 * 60 * 1000;
+      const recentHour = adminState.apiRequests.filter(r => (r.__ts || 0) >= oneHourAgo);
+      hourEl.innerText = recentHour.length.toLocaleString();
+
+      const uniqueUsers = new Set(adminState.apiRequests.map(r => r.userEmail).filter(Boolean));
+      if (usersEl) usersEl.innerText = uniqueUsers.size.toLocaleString();
+
+      const endpointCounts = {};
+      adminState.apiRequests.forEach(r => {
+        if (!r.endpoint) return;
+        endpointCounts[r.endpoint] = (endpointCounts[r.endpoint] || 0) + 1;
+      });
+      const topEndpoint = Object.entries(endpointCounts).sort((a, b) => b[1] - a[1])[0];
+      if (endpointEl) endpointEl.innerText = topEndpoint ? topEndpoint[0] : '—';
+
+      // Bucket requests into 1-minute buckets for the last 20 minutes.
+      const buckets = new Array(20).fill(0);
+      adminState.apiRequests.forEach(r => {
+        if (!r.__ts) return;
+        const minutesAgo = Math.floor((now - r.__ts) / 60000);
+        if (minutesAgo >= 0 && minutesAgo < 20) buckets[19 - minutesAgo]++;
+      });
+      const max = Math.max(1, ...buckets);
+      sparkline.innerHTML = buckets.map(count => `
+        <div class="flex-1 bg-teal-500/80 rounded-t hover:bg-teal-600 transition-colors" style="height:${Math.max(4, (count / max) * 100)}%" title="${count} request(s)"></div>
+      `).join('');
+    }
+
+    function renderAdminAudit() {
+      const tbody = document.getElementById('admin-audit-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3 font-mono text-slate-500">${new Date().toLocaleTimeString()}</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-800">system@platform</td>
+          <td class="py-2.5 px-3 font-bold text-teal-700">System Boot</td>
+          <td class="py-2.5 px-3 font-mono text-slate-700">Admin Console</td>
+          <td class="py-2.5 px-3 text-slate-600">Admin Security Layer Initialized</td>
+        </tr>
+      `;
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
