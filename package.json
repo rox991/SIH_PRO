@@ -1,0 +1,10 @@
+{
+  "name": "ayurfhir-bridge",
+  "private": true,
+  "workspaces": ["backend"],
+  "scripts": {
+    "dev": "npm --workspace backend run dev",
+    "start": "npm --workspace backend start",
+    "test": "npm --workspace backend test"
+  }
+}

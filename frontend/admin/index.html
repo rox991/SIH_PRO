@@ -19,7 +19,6 @@
   <!-- Firebase Web SDK v10 (Compat CDN) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
   <script id="tailwind-config">
     tailwind.config = {
@@ -93,7 +92,7 @@
           <button onclick="handleAdminLogout()" class="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs transition-colors">
             Sign Out & Switch Account
           </button>
-          <a href="index.html" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-center font-bold rounded-lg text-xs transition-colors">
+          <a href="/patient/" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-center font-bold rounded-lg text-xs transition-colors">
             Return to User Portal
           </a>
         </div>
@@ -223,7 +222,7 @@
         <span>System Health</span>
       </a>
 
-      <a href="index.html" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-800 font-bold text-xs mt-4 hover:bg-teal-100 transition-all">
+    <a href="/patient/" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-800 font-bold text-xs mt-4 hover:bg-teal-100 transition-all">
         <span class="material-symbols-outlined text-base">home</span>
         <span>Go to User Portal (index.html)</span>
       </a>
@@ -1018,5 +1017,6 @@
       document.getElementById(id).classList.add('hidden');
     }
   </script>
+  <script type="module" src="/shared/admin-api.js"></script>
 </body>
 </html>

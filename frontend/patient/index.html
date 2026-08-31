@@ -19,7 +19,6 @@
   <!-- Firebase Web SDK v10 (Compat CDN) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
   <script id="tailwind-config">
     tailwind.config = {
@@ -128,7 +127,7 @@
       </a>
 
       <!-- Admin Console Link: Visible ONLY when logged in user role === 'admin' -->
-      <a id="admin-console-btn" href="admin.html" target="_blank" class="hidden flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-slate-900 text-white font-semibold text-xs mt-4 shadow-sm hover:bg-slate-800 transition-all">
+      <a id="admin-console-btn" href="/admin/" target="_blank" class="hidden flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-slate-900 text-white font-semibold text-xs mt-4 shadow-sm hover:bg-slate-800 transition-all">
         <span class="material-symbols-outlined text-base">admin_panel_settings</span>
         <span>Open Admin Console ↗</span>
       </a>
@@ -1084,5 +1083,6 @@
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
     function toggleMobileMenu() { document.getElementById('sidebar-nav').classList.toggle('hidden'); }
   </script>
+  <script type="module" src="/shared/patient-api.js"></script>
 </body>
 </html>
