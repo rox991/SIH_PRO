@@ -1,14 +1,19 @@
 {
-  "name": "ayurfhir-terminology-service",
+  "name": "ayurfhir-bridge",
   "version": "1.0.0",
-  "description": "NAMASTE ↔ ICD-11 (TM2) FHIR R4 Dual-Coding Microservice for AYUSH EMRs",
-  "main": "server.js",
+  "private": true,
+  "description": "NAMASTE ↔ ICD-11 (TM2) FHIR R4 Dual-Coding Platform for AYUSH EMRs",
+  "workspaces": [
+    "backend"
+  ],
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
+    "dev": "npm --workspace backend run dev",
+    "start": "npm --workspace backend start",
+    "test": "npm --workspace backend test",
     "dev:client": "cd client && npm run dev",
     "dev:admin": "cd admin && npm run dev",
-    "test": "node test.js"
+    "dev:icd": "node server.js",
+    "test:icd": "node test.js"
   },
   "keywords": [
     "icd-11",

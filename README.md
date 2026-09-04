@@ -18,6 +18,20 @@ Open `http://localhost:3000/`. The Express process serves:
 
 The app boots without Firebase credentials, but sign-in stays disabled and the portal runs in guest mode.
 
+### Standalone ICD-11 demo servers
+
+The repository also carries a self-contained NAMASTE ↔ ICD-11 terminology demo that predates the
+backend/frontend split. It is **not** part of `npm run dev`; run it separately when you need it:
+
+| Command | Port | Serves |
+| --- | --- | --- |
+| `npm run dev:icd` | 3001 | `server.js` — FHIR `$expand`/`$translate`, curation queue, `client/` pages |
+| `npm run dev:client` | 5173 | `client/server.js` — hospital EMR client |
+| `npm run dev:admin` | 5174 | `admin/server.js` — admin console |
+
+These serve their own copies of `index.html` / `admin.html` and do not share the Firebase auth layer
+used by `frontend/`.
+
 ## Firebase setup
 
 Login uses **Firebase Authentication (Email/Password)** in the browser and **Firebase Admin + Cloud Firestore** on the server. Fill `backend/.env` from `backend/.env.example`:

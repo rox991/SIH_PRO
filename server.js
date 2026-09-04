@@ -18,11 +18,13 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const ICD11_CONTAINER_HOST = process.env.ICD11_HOST || 'http://10.21.91.147';
 
 // Load Ayurveda NAMASTE Terminology Dataset
 const DATA_FILE = path.join(__dirname, 'data', 'namaste_ayurveda.json');
+// The demo pages (index.html, admin.html) live in client/, not next to this file.
+const STATIC_ROOT = path.join(__dirname, 'client');
 let TERMINOLOGY_DB = [];
 try {
   if (fs.existsSync(DATA_FILE)) {
@@ -477,10 +479,10 @@ const server = http.createServer(async (req, res) => {
     // -------------------------------------------------------------
     // 7. Static File Server (serves index.html, admin.html, etc.)
     // -------------------------------------------------------------
-    let filePath = path.join(__dirname, pathname === '/' ? 'index.html' : pathname);
+    let filePath = path.join(STATIC_ROOT, pathname === '/' ? 'index.html' : pathname);
 
     // Security check: prevent directory traversal
-    if (!filePath.startsWith(__dirname)) {
+    if (filePath !== STATIC_ROOT && !filePath.startsWith(STATIC_ROOT + path.sep)) {
       res.writeHead(403);
       return res.end('Access denied');
     }
@@ -488,7 +490,7 @@ const server = http.createServer(async (req, res) => {
     fs.stat(filePath, (err, stats) => {
       if (err || !stats.isFile()) {
         // If not found, fallback to index.html for client-side navigation
-        filePath = path.join(__dirname, 'index.html');
+        filePath = path.join(STATIC_ROOT, 'index.html');
       }
 
       const ext = path.extname(filePath).toLowerCase();
