@@ -27,19 +27,40 @@ const DATA_FILE = path.join(__dirname, 'data', 'namaste_ayurveda.json');
 // served by their own standalone servers.
 const STATIC_ROOT = __dirname;
 
-// Friendly URLs for the two pages. '/admin' would otherwise resolve to the admin/
-// directory, fail the isFile() check, and silently fall through to index.html.
+// Only the practitioner portal is served from here. '/admin' is handled by the
+// backend app below, which owns the real admin console in frontend/admin/.
 const PAGE_ROUTES = {
-  '/': 'index.html',
-  '/admin': 'admin.html',
-  '/admin/': 'admin.html',
-  '/portal': 'admin.html'
+  '/': 'index.html'
 };
 
 // STATIC_ROOT is the repository root, so only root-level assets are servable and
 // the server's own sources stay private. Without this, /backend/.env and
 // /.git/config are downloadable.
 const PRIVATE_FILES = new Set(['server.js', 'test.js', 'package.json', 'package-lock.json']);
+
+// The backend (ESM/Express) owns Firebase auth, the admin API and the frontend/
+// pages. It only calls app.listen() when run directly, so importing it here adds
+// no second listener - we just hand it the requests it owns.
+const BACKEND_PREFIXES = ['/shared/', '/patient', '/admin', '/api/v1/auth/', '/api/v1/admin/'];
+
+let backendAppPromise = null;
+function getBackendApp() {
+  if (!backendAppPromise) {
+    const entry = url.pathToFileURL(path.join(__dirname, 'backend', 'src', 'app.js')).href;
+    backendAppPromise = import(entry)
+      .then((mod) => mod.default)
+      .catch((err) => {
+        console.warn('[BACKEND] Could not load backend/src/app.js:', err.message);
+        console.warn('[BACKEND] /admin and the auth API are unavailable; the portal still works.');
+        return null;
+      });
+  }
+  return backendAppPromise;
+}
+
+function isBackendPath(pathname) {
+  return BACKEND_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+}
 
 function resolveStatic(pathname) {
   const route = PAGE_ROUTES[pathname];
@@ -502,7 +523,24 @@ const server = http.createServer(async (req, res) => {
     }
 
     // -------------------------------------------------------------
-    // 7. Static File Server (serves index.html, admin.html, etc.)
+    // 7. Admin console + auth, served by the backend app
+    // -------------------------------------------------------------
+    // index.html links to "admin.html"; send that to the real console so the
+    // 289KB page does not have to be edited.
+    if (pathname === '/admin.html') {
+      res.writeHead(302, { Location: '/admin/' });
+      return res.end();
+    }
+
+    if (isBackendPath(pathname)) {
+      const backendApp = await getBackendApp();
+      if (backendApp) return backendApp(req, res);
+      res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end('Admin console unavailable: backend/src/app.js failed to load.');
+    }
+
+    // -------------------------------------------------------------
+    // 8. Static File Server (serves index.html and root-level assets)
     // -------------------------------------------------------------
     let filePath = resolveStatic(pathname) || path.join(STATIC_ROOT, 'index.html');
 
@@ -545,7 +583,7 @@ server.listen(PORT, () => {
   console.log('================================================================');
   console.log(`  AyurFHIR Terminology Microservice is running!`);
   console.log(`  Port:             http://localhost:${PORT}`);
-  console.log(`  Admin Console:    http://localhost:${PORT}/admin.html`);
+  console.log(`  Admin Console:    http://localhost:${PORT}/admin/`);
   console.log(`  Live ICD-11 Host: ${ICD11_CONTAINER_HOST}`);
   console.log(`  Test Entity URL:  http://localhost:${PORT}/icd/entity/2066255370`);
   console.log(`  FHIR Expansion:   http://localhost:${PORT}/ValueSet/$expand?q=Amlapitta`);

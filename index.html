@@ -20,7 +20,7 @@
   <!-- Firebase Web SDK v10 (Compat CDN) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script id="tailwind-config">
     tailwind.config = {
@@ -114,6 +114,11 @@
       <a href="#hospital" onclick="switchTab('hospital')" id="nav-hospital" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
         <span class="material-symbols-outlined text-xl text-slate-500 mt-0.5">local_hospital</span>
         <span class="leading-tight">Hospital (HIP / HIU)<span class="block text-[10px] font-normal text-slate-400 mt-0.5">The doctor / clinic side</span></span>
+      </a>
+
+      <a href="#insurer" onclick="switchTab('insurer')" id="nav-insurer" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-violet-600 mt-0.5">shield_with_heart</span>
+        <span class="leading-tight">Insurance Portal<span class="block text-[10px] font-normal text-slate-400 mt-0.5">Claims desk — find a patient by policy number</span></span>
       </a>
 
       <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">Developer Suite</div>
@@ -301,7 +306,7 @@
                 <span class="material-symbols-outlined">policy</span>
               </div>
               <h4 class="font-bold text-sm text-emerald-900">4 · Disclosure + Audit</h4>
-              <p class="text-xs text-emerald-800 leading-relaxed">Only the consented slice is disclosed. Reads die instantly on revoke or expiry, enforced in database rules — not in UI code.</p>
+              <p class="text-xs text-emerald-800 leading-relaxed">Only the consented slice is disclosed — to a hospital under <code class="font-mono">CAREMGT</code>, to an insurer under <code class="font-mono">HPAYMT</code>. Reads die instantly on revoke or expiry, enforced in database rules — not in UI code.</p>
             </div>
           </div>
         </div>
@@ -722,6 +727,28 @@
             </div>
           </div>
 
+          <!-- Insurance policies -->
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <span class="material-symbols-outlined text-violet-600">shield_with_heart</span>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-sm">My insurance policies</h3>
+                  <p class="text-[11px] text-slate-500">Linking a policy lets your insurer find your claim by policy number alone. It grants them nothing — they still have to ask, and you still have to sign.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="policy-count" class="px-2.5 py-1 bg-violet-100 text-violet-800 rounded-full text-xs font-bold">0</span>
+                <button onclick="openPolicyModal()" class="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
+                  <span class="material-symbols-outlined text-sm">add_card</span> Link a policy
+                </button>
+              </div>
+            </div>
+            <div id="patient-policies-list" class="divide-y divide-slate-100">
+              <div class="p-8 text-center text-xs text-slate-400">No policy linked yet.</div>
+            </div>
+          </div>
+
           <!-- Access history -->
           <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
@@ -977,6 +1004,180 @@
           </div>
         </div>
       </section>
+      <!-- ================= INSURANCE PORTAL ================= -->
+      <section id="tab-insurer" class="tab-content hidden space-y-6">
+        <div>
+          <span class="px-2.5 py-0.5 rounded-md bg-violet-100 text-violet-800 text-xs font-bold uppercase">Payer Workspace</span>
+          <h2 class="text-2xl font-bold text-slate-900 mt-1">Insurance Portal</h2>
+          <p class="text-xs text-slate-500">Look a claimant up by policy number alone, then read the treatment details the patient releases to you — dual-coded, so the ICD-11 MMS code you adjudicate on sits beside the Ayurveda diagnosis the hospital actually recorded.</p>
+        </div>
+
+        <div id="insurer-signin-gate" class="hidden bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+          <span class="material-symbols-outlined text-4xl text-slate-300">lock</span>
+          <p class="font-bold text-slate-800">Sign in to access the insurer workspace</p>
+          <button onclick="openAuthModal()" class="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-xs">Sign In / Sign Up</button>
+        </div>
+
+        <!-- Insurer registration -->
+        <div id="insurer-register-wrap" class="hidden bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Register your insurance company</h3>
+            <p class="text-xs text-slate-500">Publishes you to the insurer directory so patients can attach a policy to their ABHA, and issues an API key for claim-system integration.</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label class="font-bold text-slate-700 block mb-1.5">Company name</label>
+              <input id="insurer-name" type="text" placeholder="e.g. Bharat Arogya General Insurance" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1.5">Type</label>
+              <select id="insurer-type" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600">
+                <option value="Health Insurer">Health insurer</option>
+                <option value="General Insurer">General insurer</option>
+                <option value="TPA">Third-party administrator (TPA)</option>
+                <option value="Government Scheme">Government scheme (PM-JAY / state)</option>
+              </select>
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1.5">IRDAI registration number</label>
+              <input id="insurer-irdai" type="text" placeholder="IRDAI/HLT/2019/0123" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600 font-mono" />
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-1.5">City</label>
+              <input id="insurer-city" type="text" placeholder="Mumbai" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="font-bold text-slate-700 block mb-1.5">Claims desk email</label>
+              <input id="insurer-contact" type="email" placeholder="claims@insurer.in" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+            </div>
+          </div>
+          <button onclick="registerInsurer()" class="px-5 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-sm transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined text-base">add_business</span> Register insurer &amp; issue API key
+          </button>
+        </div>
+
+        <!-- Insurer workspace -->
+        <div id="insurer-workspace" class="hidden space-y-6">
+          <div class="bg-gradient-to-br from-slate-900 to-violet-950 rounded-2xl p-6 text-white shadow-lg">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-violet-300">shield_with_heart</span>
+                  <h3 id="insurer-card-name" class="font-bold text-lg">—</h3>
+                  <span id="insurer-card-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">ACTIVE</span>
+                </div>
+                <p class="text-xs text-slate-300"><span id="insurer-card-type">—</span> · <span id="insurer-card-city">—</span> · IRDAI <span id="insurer-card-irdai">—</span></p>
+                <p class="text-[11px] font-mono text-violet-300">Insurer ID: <span id="insurer-card-id">—</span></p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="rotateInsurerApiKey()" class="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                  <span class="material-symbols-outlined text-sm">autorenew</span> Rotate API key
+                </button>
+              </div>
+            </div>
+            <div id="insurer-suspended-warning" class="hidden mt-4 p-3 bg-red-500/20 border border-red-400/40 rounded-xl text-xs text-red-200">
+              <strong>This insurer is suspended by the administrator.</strong> Policy lookup and consent requests are blocked until reactivation.
+            </div>
+          </div>
+
+          <!-- Policy lookup -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-violet-600">policy</span>
+              <div>
+                <h3 class="font-bold text-slate-900 text-sm">Find a claimant by policy number</h3>
+                <p class="text-[11px] text-slate-500">The policy number is all you need — no ABHA address, no phone number. Only policies issued under <em>your</em> insurer ID resolve.</p>
+              </div>
+            </div>
+            <div class="flex items-stretch gap-2">
+              <input id="policy-lookup-input" type="text" placeholder="BAGI-HLT-2026-004821" class="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600 font-mono text-xs uppercase" />
+              <button onclick="lookupPolicy()" class="px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold transition-colors">Look up</button>
+            </div>
+            <div id="policy-lookup-result" class="hidden p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 text-xs"></div>
+          </div>
+
+          <!-- Claim consent request -->
+          <div id="claim-request-wrap" class="hidden bg-white rounded-2xl border border-amber-200 p-5 space-y-4">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-amber-600">receipt_long</span>
+              <div>
+                <h3 class="font-bold text-slate-900 text-sm">Raise a claim access request</h3>
+                <p id="claim-request-subtitle" class="text-[11px] text-slate-500">—</p>
+              </div>
+            </div>
+            <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+              <strong>Purpose is fixed to <span class="font-mono">HPAYMT</span> — Healthcare Payment.</strong> A payer cannot request records under a care-management purpose code, and the patient sees exactly which claim the request belongs to before they sign.
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">Claim reference</label>
+                <input id="claim-ref" type="text" placeholder="CLM-2026-88213" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600 font-mono" />
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">Treatment from</label>
+                <input id="claim-date-from" type="date" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">Treatment to</label>
+                <input id="claim-date-to" type="date" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">Access expires in</label>
+                <select id="claim-expiry" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600">
+                  <option value="86400000">24 hours</option>
+                  <option value="604800000" selected>7 days</option>
+                  <option value="2592000000">30 days</option>
+                </select>
+              </div>
+              <div class="md:col-span-2">
+                <label class="font-bold text-slate-700 block mb-1">Why the claims desk needs these records</label>
+                <input id="claim-reason" type="text" placeholder="Verifying the admission and diagnosis on cashless claim CLM-2026-88213" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+              </div>
+            </div>
+            <div>
+              <label class="font-bold text-slate-700 block mb-2 text-xs">Health information types requested</label>
+              <div id="claim-hitypes" class="flex flex-wrap gap-2"></div>
+            </div>
+            <button onclick="raiseClaimConsent()" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-sm">how_to_reg</span> Send request to the policyholder
+            </button>
+          </div>
+
+          <!-- Claim consents -->
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <span class="material-symbols-outlined text-slate-600">fact_check</span>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-sm">Claim access requests</h3>
+                  <p class="text-[11px] text-slate-500">Reading is permitted only while the policyholder's grant is live. Every attempt lands in their ledger.</p>
+                </div>
+              </div>
+              <span id="insurer-consent-count" class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold">0</span>
+            </div>
+            <div id="insurer-consents-list" class="divide-y divide-slate-100">
+              <div class="p-8 text-center text-xs text-slate-400">No claim requests raised yet.</div>
+            </div>
+          </div>
+
+          <!-- Treatment details -->
+          <div id="claim-fetch-panel" class="hidden bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <span class="material-symbols-outlined text-violet-600">clinical_notes</span>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-sm">Treatment details released for this claim</h3>
+                  <p id="claim-fetch-subtitle" class="text-[11px] text-slate-500">—</p>
+                </div>
+              </div>
+              <button onclick="closeClaimPanel()" class="text-slate-400 hover:text-slate-700"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div id="claim-summary" class="hidden px-5 py-4 bg-slate-50 border-b border-slate-100 space-y-3"></div>
+            <div id="claim-fetch-body" class="divide-y divide-slate-100"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- ================= HOSPITAL API CONSOLE ================= -->
       <section id="tab-api" class="tab-content hidden space-y-6">
         <div>
@@ -1033,11 +1234,20 @@
                 </div>
 
                 <div>
-                  <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center justify-between gap-2 mb-1.5">
                     <label class="text-xs font-bold text-slate-700">Response</label>
-                    <span id="api-response-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-100 text-slate-500">idle</span>
+                    <div class="flex items-center gap-2">
+                      <div class="flex gap-1 p-0.5 bg-slate-100 rounded-lg">
+                        <button id="api-tab-gui" onclick="switchApiResponseView('gui')" class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-900 text-white transition-colors">Visual</button>
+                        <button id="api-tab-json" onclick="switchApiResponseView('json')" class="px-2.5 py-0.5 rounded-md text-[11px] font-bold text-slate-600 hover:bg-slate-200 transition-colors">JSON</button>
+                      </div>
+                      <span id="api-response-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-100 text-slate-500">idle</span>
+                    </div>
                   </div>
-                  <pre id="api-response-output" class="p-4 code-bg text-slate-300 rounded-xl font-mono text-[11px] overflow-x-auto max-h-96 leading-relaxed whitespace-pre-wrap">// Send a request to see the response.</pre>
+                  <div id="api-response-gui" class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5 max-h-96 overflow-y-auto">
+                    <p class="text-center text-xs text-slate-400 py-6">Send a request to see the response.</p>
+                  </div>
+                  <pre id="api-response-output" class="hidden p-4 code-bg text-slate-300 rounded-xl font-mono text-[11px] overflow-x-auto max-h-96 leading-relaxed whitespace-pre-wrap">// Send a request to see the response.</pre>
                 </div>
               </div>
             </div>
@@ -1170,7 +1380,11 @@
           <div class="lg:col-span-3 bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
               <h3 id="explorer-title" class="font-bold text-slate-900 text-sm font-mono">Condition</h3>
-              <div class="flex gap-2">
+              <div class="flex flex-wrap gap-2">
+                <div class="flex gap-1 p-0.5 bg-slate-100 rounded-lg">
+                  <button id="explorer-tab-gui" onclick="switchExplorerView('gui')" class="px-3 py-1 rounded-md text-xs font-bold bg-slate-900 text-white transition-colors">Visual</button>
+                  <button id="explorer-tab-json" onclick="switchExplorerView('json')" class="px-3 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors">JSON</button>
+                </div>
                 <button onclick="validateExplorerJson()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-sm">verified</span> Validate
                 </button>
@@ -1180,7 +1394,8 @@
               </div>
             </div>
             <div id="explorer-validation" class="hidden px-5 py-3 text-xs border-b"></div>
-            <pre id="explorer-output" class="p-5 code-bg text-slate-300 font-mono text-[11px] overflow-x-auto max-h-[32rem] leading-relaxed whitespace-pre-wrap"></pre>
+            <div id="explorer-gui" class="p-5 bg-slate-50 space-y-3 max-h-[32rem] overflow-y-auto"></div>
+            <pre id="explorer-output" class="hidden p-5 code-bg text-slate-300 font-mono text-[11px] overflow-x-auto max-h-[32rem] leading-relaxed whitespace-pre-wrap"></pre>
           </div>
         </div>
       </section>
@@ -1314,9 +1529,10 @@
         <button onclick="handleSignIn()" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-sm transition-colors">Sign In</button>
         <div class="pt-2 border-t border-slate-100 space-y-2">
           <p class="text-[11px] text-slate-500 text-center font-semibold">Quick demo personas</p>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-3 gap-2">
             <button onclick="useDemoAccount('patient')" class="py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[11px] font-bold border border-emerald-200 transition-colors">Patient</button>
             <button onclick="useDemoAccount('hospital')" class="py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg text-[11px] font-bold border border-blue-200 transition-colors">Hospital</button>
+            <button onclick="useDemoAccount('insurer')" class="py-2 bg-violet-50 hover:bg-violet-100 text-violet-800 rounded-lg text-[11px] font-bold border border-violet-200 transition-colors">Insurer</button>
           </div>
         </div>
       </div>
@@ -1339,6 +1555,7 @@
           <select id="signup-role" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 text-sm">
             <option value="patient">Patient — I want an ABHA and control over my records</option>
             <option value="hospital">Hospital / Clinic — HIP or HIU integration</option>
+            <option value="insurer">Insurance company / TPA — claims adjudication</option>
             <option value="user">Developer — terminology &amp; API exploration only</option>
           </select>
           <p class="text-[10px] text-slate-400 mt-1">Administrator accounts are provisioned only from the admin console.</p>
@@ -1402,6 +1619,47 @@
     </div>
   </div>
 
+  <!-- ==================== LINK INSURANCE POLICY MODAL ==================== -->
+  <div id="policy-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-violet-600">shield_with_heart</span>
+          <h3 class="font-bold text-slate-900">Link an insurance policy</h3>
+        </div>
+        <button onclick="closeModal('policy-modal')" class="text-slate-400 hover:text-slate-700"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="p-6 space-y-3 text-xs">
+        <p class="text-slate-500 leading-relaxed">Your insurer can then resolve this policy number to your ABHA — and to nothing else. Demographics stay masked, and no record is readable until you sign a consent for that specific claim.</p>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1.5">Insurer</label>
+          <select id="policy-insurer" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600"></select>
+          <p id="policy-insurer-empty" class="hidden text-[10px] text-amber-700 mt-1">No insurer has registered on this deployment yet. Create an insurer account from the Insurance Portal tab first.</p>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1.5">Policy number</label>
+          <input id="policy-number" type="text" placeholder="BAGI-HLT-2026-004821" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600 font-mono uppercase" />
+          <p class="text-[10px] text-slate-400 mt-1">Exactly as printed on your card. Spaces and dashes are ignored when matching.</p>
+        </div>
+        <div>
+          <label class="font-bold text-slate-700 block mb-1.5">Plan name (optional)</label>
+          <input id="policy-plan" type="text" placeholder="Arogya Sanjeevani — Family Floater" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1.5">Valid from</label>
+            <input id="policy-valid-from" type="date" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1.5">Valid to</label>
+            <input id="policy-valid-to" type="date" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-violet-600" />
+          </div>
+        </div>
+        <button onclick="linkPolicy()" class="w-full py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-sm transition-colors">Link policy to my ABHA</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== API KEY (SHOWN ONCE) MODAL ==================== -->
   <div id="apikey-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
@@ -1455,6 +1713,13 @@
     <span class="material-symbols-outlined">help</span>
   </button>
 
+  <div id="app-loading" class="hidden fixed inset-0 z-[70] bg-slate-900/35 backdrop-blur-[2px] items-center justify-center p-4" aria-live="polite" aria-busy="true">
+    <div class="flex items-center gap-3 rounded-xl bg-white px-5 py-4 shadow-2xl border border-slate-200">
+      <span class="material-symbols-outlined animate-spin text-teal-600">progress_activity</span>
+      <span id="app-loading-text" class="text-sm font-semibold text-slate-700">Loading…</span>
+    </div>
+  </div>
+
   <!-- ==================== TOAST ==================== -->
   <div id="toast-stack" class="fixed bottom-5 right-5 z-[60] space-y-2 w-80 max-w-[calc(100vw-2.5rem)]"></div>
 
@@ -1478,14 +1743,15 @@
 
   /* ---------- 1. CONFIG + REFERENCE DATA ---------- */
 
+  // Same Firebase project as the backend, so the portal and the admin console
+  // share one Firestore and one set of user accounts.
   const firebaseConfig = {
-    apiKey: "AIzaSyA2l2wuVvBJ8i1SBPFIPOGz2JwWDDGjAqk",
-    authDomain: "namaste-1e265.firebaseapp.com",
-    databaseURL: "https://namaste-1e265-default-rtdb.firebaseio.com",
-    projectId: "namaste-1e265",
-    storageBucket: "namaste-1e265.firebasestorage.app",
-    messagingSenderId: "59383012302",
-    appId: "1:59383012302:web:9f2d37b84891bc4225e99f"
+    apiKey: "AIzaSyD521lHltEpmf99J481bIyAmj4srhc8e24",
+    authDomain: "sihicd11.firebaseapp.com",
+    projectId: "sihicd11",
+    storageBucket: "sihicd11.firebasestorage.app",
+    messagingSenderId: "1076879094670",
+    appId: "1:1076879094670:web:e1623f5fd25f51adf0aadf"
   };
 
   const ABDM_CONFIG = {
@@ -1551,6 +1817,7 @@
     abha:        { title: "ABHA Onboarding",              icon: "badge" },
     patient:     { title: "Patient Portal",               icon: "personal_injury" },
     hospital:    { title: "Hospital Portal (HIP / HIU)",  icon: "local_hospital" },
+    insurer:     { title: "Insurance Portal",             icon: "shield_with_heart" },
     api:         { title: "Hospital Integration API",     icon: "code_blocks" },
     terminology: { title: "Terminology Search",           icon: "menu_book" },
     explorer:    { title: "FHIR Resource Explorer",       icon: "dataset_linked" },
@@ -1565,12 +1832,16 @@
     abha: null,               // full record from /abha/{abhaKey}
     abhaKey: null,
     hip: null,                // full record from /hips/{hipId}
+    insurer: null,            // full record from /insurers/{insurerId}
     records: [],              // careContexts of the signed-in patient
+    policies: [],             // insurance policies linked to my ABHA
     linkRequests: [],
     patientConsents: [],      // consents where I am the patient
     hipConsents: [],          // consents where I am the requester
     accessLogs: [],
     discovered: null,         // last discovery result (hospital side)
+    lookedUpPolicy: null,     // last policy resolved (insurer side)
+    insurerDirectory: [],     // insurers a patient can attach a policy to
     issuedApiKey: null,       // held in memory only, never persisted
     kyc: null,                // transient eKYC session (never persisted)
     otpSession: null,
@@ -1579,7 +1850,10 @@
     activities: [],
     snippetLang: "curl",
     explorerKey: "condition",
-    dbReady: false
+    explorerView: "gui",
+    apiResponseView: "gui",
+    dbReady: false,
+    loadingCount: 0
   };
 
   /* ---------- 2. PURE UTILITIES ---------- */
@@ -1789,6 +2063,24 @@
     return "in " + Math.floor(hrs / 24) + " days";
   }
 
+  function showLoading(message) {
+    const overlay = document.getElementById("app-loading");
+    const label = document.getElementById("app-loading-text");
+    state.loadingCount += 1;
+    if (label) label.innerText = message || "Loading…";
+    if (overlay) overlay.classList.remove("hidden");
+    if (overlay) overlay.classList.add("flex");
+  }
+
+  function hideLoading() {
+    const overlay = document.getElementById("app-loading");
+    state.loadingCount = Math.max(0, state.loadingCount - 1);
+    if (overlay && state.loadingCount === 0) {
+      overlay.classList.add("hidden");
+      overlay.classList.remove("flex");
+    }
+  }
+
   function toast(message, kind) {
     const stack = document.getElementById("toast-stack");
     if (!stack) return;
@@ -1810,7 +2102,7 @@
     setTimeout(function () {
       el.classList.add("opacity-0", "translate-y-2");
       setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320);
-    }, 4200);
+    }, 7000);
   }
 
   function pushActivity(icon, text, tone) {
@@ -1976,6 +2268,8 @@
   state.consentListeners = {};
   state.patientConsentIds = [];
   state.hipConsentIds = [];
+  state.insurerConsentIds = [];
+  state.insurerConsents = [];
 
   function setDbStatus(kind, text) {
     const dot = document.getElementById("fb-status-dot");
@@ -1987,16 +2281,229 @@
     if (secDb) secDb.innerText = text;
   }
 
+
+  /* ---------- FIRESTORE ADAPTER ----------
+     The portal was written against the Realtime Database. Its data now lives in
+     Cloud Firestore (same project as the backend), so this adapter presents the
+     ref()/set/update/remove/push/once/on surface the page already uses and maps
+     it onto Firestore underneath.
+
+     Path mapping. RTDB paths are free-form; Firestore alternates
+     collection/document. DOC_DEPTH records how many segments make a document
+     for each top-level node, so "users/u1" is a document while
+     "linkRequests/k1" is a container of documents.
+
+     Nested nodes are stored flat: "linkRequests/k1/lr9" becomes the document
+     "linkRequests/k1__lr9" carrying _parent:"k1" and _key:"lr9". Listing the
+     children of "linkRequests/k1" is then a where("_parent","==","k1") query,
+     and child.key still returns "lr9".
+
+     Timestamps: SV() writes a Firestore serverTimestamp, which reads back as a
+     Timestamp object. The page sorts with plain arithmetic ((b.ts||0)-(a.ts||0)),
+     so every Timestamp is converted to milliseconds on the way out.          */
+  function createFirestoreDb(fs) {
+    const DOC_DEPTH = {
+      users: 2, abha: 2, abhaDirectory: 2, hips: 2, consents: 2, disclosures: 2,
+      auditLogs: 2, apiRequests: 2,
+      insurers: 2, insurerDirectory: 2, policyDirectory: 2,
+      careContexts: 3, linkRequests: 3, dataAccessLogs: 3,
+      patientConsents: 3, hipConsents: 3, insurerConsents: 3,
+      patientPolicies: 3
+    };
+
+    function toPlain(value) {
+      if (value == null) return value;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (Array.isArray(value)) return value.map(toPlain);
+      if (typeof value === "object") {
+        const out = {};
+        Object.keys(value).forEach(function (k) { out[k] = toPlain(value[k]); });
+        return out;
+      }
+      return value;
+    }
+
+    // Firestore documents are always objects; RTDB nodes can be scalars, so a
+    // scalar write is boxed as { _value: ... } and unboxed on read.
+    function unwrap(data) {
+      if (!data) return null;
+      const plain = toPlain(data);
+      if (Object.prototype.hasOwnProperty.call(plain, "_value")) return plain._value;
+      delete plain._parent;
+      delete plain._key;
+      return plain;
+    }
+
+    // Only a plain object becomes the document body. Anything else - a scalar, an
+    // array, or a FieldValue sentinel such as serverTimestamp() - is boxed, since
+    // spreading a sentinel would destroy it.
+    function isPlainObject(v) {
+      if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
+      const proto = Object.getPrototypeOf(v);
+      return proto === Object.prototype || proto === null;
+    }
+
+    function wrap(value, parent, key) {
+      const body = isPlainObject(value) ? Object.assign({}, value) : { _value: value };
+      if (parent != null) { body._parent = parent; body._key = key; }
+      return body;
+    }
+
+    function docSnapshot(snap, key) {
+      const read = function () { return snap.exists ? unwrap(snap.data()) : null; };
+      return {
+        key: key,
+        exists: function () { return snap.exists; },
+        val: read,
+        // In the Realtime Database a node's children were its object keys, and
+        // the page still iterates them: disclosures/<cid> holds one field per
+        // released record, and both fetch paths walk it with forEach.
+        forEach: function (cb) {
+          const value = read();
+          if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+          const names = Object.keys(value);
+          for (let i = 0; i < names.length; i++) {
+            const name = names[i];
+            const child = {
+              key: name,
+              exists: function () { return true; },
+              val: function () { return value[name]; }
+            };
+            if (cb(child)) return true;
+          }
+          return false;
+        }
+      };
+    }
+
+    function listSnapshot(query, keyOf) {
+      const children = query.docs.map(function (d) {
+        const data = d.data() || {};
+        return { key: keyOf(d, data), value: unwrap(data) };
+      });
+      return {
+        exists: function () { return children.length > 0; },
+        val: function () {
+          if (!children.length) return null;
+          const out = {};
+          children.forEach(function (c) { out[c.key] = c.value; });
+          return out;
+        },
+        forEach: function (cb) {
+          for (let i = 0; i < children.length; i++) {
+            const c = children[i];
+            if (cb({ key: c.key, val: function () { return c.value; }, exists: function () { return true; } })) return true;
+          }
+          return false;
+        }
+      };
+    }
+
+    // RTDB exposed connection state and a server-clock offset at /.info. Firestore
+    // has no equivalent, so connectivity follows the browser and the offset is 0
+    // (SV() resolves server-side, so nothing depends on a client-side correction).
+    function infoRef(name) {
+      return {
+        on: function (_event, cb) {
+          if (name === "connected") {
+            const emit = function () { cb({ val: function () { return navigator.onLine; }, exists: function () { return true; } }); };
+            window.addEventListener("online", emit);
+            window.addEventListener("offline", emit);
+            emit();
+          } else {
+            cb({ val: function () { return 0; }, exists: function () { return true; } });
+          }
+          return cb;
+        },
+        off: function () {}
+      };
+    }
+
+    return {
+      ref: function (rawPath) {
+        const path = String(rawPath || "").replace(/^\/+|\/+$/g, "");
+        if (path.indexOf(".info/") === 0) return infoRef(path.slice(6));
+
+        const parts = path.split("/").filter(Boolean);
+        const top = parts[0];
+        const depth = DOC_DEPTH[top] || 2;
+        const listeners = new Map();
+
+        if (parts.length >= depth) {
+          // Document: "users/u1", or "linkRequests/k1/lr9" flattened to "k1__lr9".
+          const nested = depth === 3;
+          const parent = nested ? parts[1] : null;
+          const key = nested ? parts[2] : parts[1];
+          const docRef = fs.collection(top).doc(nested ? parent + "__" + key : key);
+
+          return {
+            key: key,
+            set: function (v) { return docRef.set(wrap(v, parent, key)); },
+            update: function (v) { return docRef.set(wrap(v, parent, key), { merge: true }); },
+            remove: function () { return docRef.delete(); },
+            once: function () { return docRef.get().then(function (s) { return docSnapshot(s, key); }); },
+            on: function (_event, cb, errCb) {
+              const stop = docRef.onSnapshot(
+                function (s) { cb(docSnapshot(s, key)); },
+                function (e) { if (errCb) errCb(e); }
+              );
+              listeners.set(cb, stop);
+              return cb;
+            },
+            off: function (_event, cb) {
+              const stop = listeners.get(cb);
+              if (stop) { stop(); listeners.delete(cb); }
+            }
+          };
+        }
+
+        // Container: "auditLogs" or "linkRequests/k1".
+        const nested = depth === 3;
+        const parent = nested ? parts[1] : null;
+        const col = fs.collection(top);
+        const query = nested ? col.where("_parent", "==", parent) : col;
+        const keyOf = function (d, data) { return nested ? (data._key || d.id) : d.id; };
+
+        return {
+          push: function (v) {
+            const key = col.doc().id;
+            const docRef = col.doc(nested ? parent + "__" + key : key);
+            const written = docRef.set(wrap(v, parent, key)).then(function () { return { key: key }; });
+            written.key = key;
+            return written;
+          },
+          set: function (v) { return col.doc(nested ? parent + "__value" : "_value").set(wrap(v, parent, "_value")); },
+          remove: function () {
+            return query.get().then(function (s) { return Promise.all(s.docs.map(function (d) { return d.ref.delete(); })); });
+          },
+          once: function () { return query.get().then(function (s) { return listSnapshot(s, keyOf); }); },
+          on: function (_event, cb, errCb) {
+            const stop = query.onSnapshot(
+              function (s) { cb(listSnapshot(s, keyOf)); },
+              function (e) { if (errCb) errCb(e); }
+            );
+            listeners.set(cb, stop);
+            return cb;
+          },
+          off: function (_event, cb) {
+            const stop = listeners.get(cb);
+            if (stop) { stop(); listeners.delete(cb); }
+          }
+        };
+      }
+    };
+  }
+
   function initFirebase() {
     try {
       fbApp = firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
       fbAuth = firebase.auth();
-      fbDb = firebase.database();
+      fbDb = createFirestoreDb(firebase.firestore());
       state.dbReady = true;
       setDbStatus("wait", "Connecting…");
 
       fbDb.ref(".info/connected").on("value", function (snap) {
-        setDbStatus(snap.val() ? "on" : "off", snap.val() ? "Realtime DB live" : "Offline");
+        setDbStatus(snap.val() ? "on" : "off", snap.val() ? "Firestore live" : "Offline");
       });
 
       // Every timestamp validator in database.rules.json compares against the
@@ -2020,12 +2527,16 @@
     state.abha = null;
     state.abhaKey = null;
     state.hip = null;
+    state.insurer = null;
     state.records = [];
+    state.policies = [];
     state.linkRequests = [];
     state.accessLogs = [];
     state.consentMap = {};
     state.patientConsentIds = [];
     state.hipConsentIds = [];
+    state.insurerConsentIds = [];
+    state.lookedUpPolicy = null;
 
     if (!user) {
       state.user = null;
@@ -2047,6 +2558,7 @@
       const chain = [];
       if (profile.abhaKey) chain.push(loadAbha(profile.abhaKey));
       if (profile.hipId) chain.push(loadHip(profile.hipId));
+      if (profile.insurerId) chain.push(loadInsurer(profile.insurerId));
       return Promise.all(chain);
     }).catch(function (err) {
       toast("Could not read your profile: " + err.message, "error");
@@ -2074,6 +2586,16 @@
       attachHipListeners(hipId);
     }).catch(function (err) {
       toast("Facility lookup failed: " + err.message, "error");
+    });
+  }
+
+  function loadInsurer(insurerId) {
+    return fbDb.ref("insurers/" + insurerId).once("value").then(function (snap) {
+      if (!snap.exists()) return;
+      state.insurer = snap.val();
+      attachInsurerListeners(insurerId);
+    }).catch(function (err) {
+      toast("Insurer lookup failed: " + err.message, "error");
     });
   }
 
@@ -2140,6 +2662,20 @@
     }, function (err) { toast("Audit stream error: " + err.message, "error"); });
     track(logRef, "value", logCb);
 
+    const polRef = fbDb.ref("patientPolicies/" + abhaKey);
+    const polCb = polRef.on("value", function (snap) {
+      const list = [];
+      snap.forEach(function (child) {
+        const v = child.val() || {};
+        v.__id = child.key;
+        list.push(v);
+      });
+      list.sort(function (a, b) { return (b.linkedAt || 0) - (a.linkedAt || 0); });
+      state.policies = list;
+      renderPatientPolicies();
+    }, function (err) { toast("Policy stream error: " + err.message, "error"); });
+    track(polRef, "value", polCb);
+
     watchConsentIndex("patientConsents/" + abhaKey, "patient");
   }
 
@@ -2156,12 +2692,27 @@
     watchConsentIndex("hipConsents/" + hipId, "hip");
   }
 
+  function attachInsurerListeners(insurerId) {
+    const ref = fbDb.ref("insurers/" + insurerId);
+    const cb = ref.on("value", function (snap) {
+      if (snap.exists()) {
+        state.insurer = snap.val();
+        renderInsurerCard();
+      }
+    }, function () { /* suppressed: permission changes are surfaced elsewhere */ });
+    track(ref, "value", cb);
+
+    watchConsentIndex("insurerConsents/" + insurerId, "insurer");
+  }
+
   function watchConsentIndex(path, which) {
     const ref = fbDb.ref(path);
     const cb = ref.on("value", function (snap) {
       const ids = [];
       snap.forEach(function (child) { ids.push(child.key); });
-      if (which === "patient") state.patientConsentIds = ids; else state.hipConsentIds = ids;
+      if (which === "patient") state.patientConsentIds = ids;
+      else if (which === "insurer") state.insurerConsentIds = ids;
+      else state.hipConsentIds = ids;
       ids.forEach(watchConsent);
       recomputeConsents();
     }, function (err) { toast("Consent index error: " + err.message, "error"); });
@@ -2193,9 +2744,13 @@
     state.hipConsents = state.hipConsentIds
       .map(function (cid) { return state.consentMap[cid]; })
       .filter(Boolean).sort(byCreatedDesc);
+    state.insurerConsents = state.insurerConsentIds
+      .map(function (cid) { return state.consentMap[cid]; })
+      .filter(Boolean).sort(byCreatedDesc);
     renderPendingConsents();
     renderActiveConsents();
     renderHipConsents();
+    renderInsurerConsents();
     renderHomeStats();
     renderDashboard();
     updateNavBadge();
@@ -2251,7 +2806,11 @@
     { term: "Consent artifact", plain: "The actual signed permission slip — what was allowed, for how long, and for what purpose — created each time a hospital asks to see records." },
     { term: "Audit log", plain: "A permanent, unchangeable list of who accessed what and when — so nothing can be quietly altered afterward." },
     { term: "ConceptMap", plain: "A FHIR resource that says \"this NAMASTE code equals / is broader than / is related to this ICD-11 code\" — the actual translation table." },
-    { term: "SNOMED CT", plain: "Another major international clinical vocabulary, often used alongside ICD-11 for more detailed clinical descriptions." }
+    { term: "SNOMED CT", plain: "Another major international clinical vocabulary, often used alongside ICD-11 for more detailed clinical descriptions." },
+    { term: "Policy number", plain: "The number printed on your insurance card. Linking it to your ABHA lets your insurer find your claim without you posting them your file — it gives them no records by itself." },
+    { term: "HPAYMT", plain: "The purpose code an insurer must use to ask for records: \"healthcare payment\". A payer cannot dress a claim check up as treatment." },
+    { term: "TPA", plain: "\"Third-party administrator\" — the company many insurers hire to actually process claims. On this platform they register the same way an insurer does." },
+    { term: "ICD-11 MMS", plain: "The mainstream (biomedical) half of ICD-11 — the codes insurers and hospital billing systems actually adjudicate on." }
   ];
 
   function renderGlossary() {
@@ -2288,11 +2847,12 @@
     const email = (document.getElementById("signin-email").value || "").trim();
     const password = document.getElementById("signin-password").value || "";
     if (!email || !password) { showAuthError("Enter both email and password."); return; }
+    showLoading("Signing in…");
     fbAuth.signInWithEmailAndPassword(email, password).then(function () {
       closeModal("auth-modal");
       showAuthError("");
       toast("Signed in as " + email, "success");
-    }).catch(function (err) { showAuthError(err.message); });
+    }).catch(function (err) { showAuthError(err.message); }).finally(hideLoading);
   }
 
   function handleSignUp() {
@@ -2302,8 +2862,9 @@
     const password = document.getElementById("signup-password").value || "";
     const role = document.getElementById("signup-role").value || "patient";
     if (!email || password.length < 6) { showAuthError("Provide an email and a password of at least 6 characters."); return; }
-    if (["patient", "hospital", "user"].indexOf(role) === -1) { showAuthError("Invalid role selection."); return; }
+    if (["patient", "hospital", "insurer", "user"].indexOf(role) === -1) { showAuthError("Invalid role selection."); return; }
 
+    showLoading("Creating account…");
     fbAuth.createUserWithEmailAndPassword(email, password).then(function (cred) {
       return fbDb.ref("users/" + cred.user.uid).set({
         email: email,
@@ -2315,13 +2876,14 @@
       closeModal("auth-modal");
       showAuthError("");
       toast("Account created. Welcome.", "success");
-    }).catch(function (err) { showAuthError(err.message); });
+    }).catch(function (err) { showAuthError(err.message); }).finally(hideLoading);
   }
 
   function useDemoAccount(persona) {
     const presets = {
       patient:  { email: "patient.demo@ayurfhir.in",  password: "Demo@12345", role: "patient",  name: "Ravi Kumar" },
-      hospital: { email: "hospital.demo@ayurfhir.in", password: "Demo@12345", role: "hospital", name: "Sushruta Ayurveda Hospital" }
+      hospital: { email: "hospital.demo@ayurfhir.in", password: "Demo@12345", role: "hospital", name: "Sushruta Ayurveda Hospital" },
+      insurer:  { email: "insurer.demo@ayurfhir.in",  password: "Demo@12345", role: "insurer",  name: "Bharat Arogya General Insurance" }
     };
     const p = presets[persona];
     if (!p) return;
@@ -2329,20 +2891,21 @@
     document.getElementById("signin-password").value = p.password;
     if (!state.dbReady) { showAuthError("Firebase is not initialised."); return; }
 
+    showLoading("Signing in…");
     fbAuth.signInWithEmailAndPassword(p.email, p.password).then(function () {
       closeModal("auth-modal");
       toast("Signed in as demo " + persona, "success");
     }).catch(function () {
       // First run on a fresh project: provision the demo persona.
-      fbAuth.createUserWithEmailAndPassword(p.email, p.password).then(function (cred) {
+      return fbAuth.createUserWithEmailAndPassword(p.email, p.password).then(function (cred) {
         return fbDb.ref("users/" + cred.user.uid).set({
           email: p.email, role: p.role, displayName: p.name, createdAt: SV()
         });
       }).then(function () {
         closeModal("auth-modal");
         toast("Demo " + persona + " account provisioned.", "success");
-      }).catch(function (err2) { showAuthError(err2.message); });
-    });
+      }).catch(function (err2) { showAuthError(err2.message); }).finally(hideLoading);
+    }).finally(hideLoading);
   }
 
   function handleSignOut() {
@@ -2402,6 +2965,10 @@
     document.getElementById("hip-register-wrap").classList.toggle("hidden", !(signedIn && !state.hip));
     document.getElementById("hip-workspace").classList.toggle("hidden", !(signedIn && !!state.hip));
 
+    document.getElementById("insurer-signin-gate").classList.toggle("hidden", signedIn);
+    document.getElementById("insurer-register-wrap").classList.toggle("hidden", !(signedIn && !state.insurer));
+    document.getElementById("insurer-workspace").classList.toggle("hidden", !(signedIn && !!state.insurer));
+
     const pill = document.getElementById("abha-header-pill");
     if (hasAbha) {
       pill.classList.remove("hidden");
@@ -2417,6 +2984,7 @@
 
     if (hasAbha) renderAbhaCard();
     if (state.hip) renderHipCard();
+    if (state.insurer) renderInsurerCard();
   }
 
   /* ---------- Navigation ---------- */
@@ -2455,10 +3023,10 @@
 
   /* ---------- 5. ABHA ONBOARDING WIZARD ---------- */
 
-  // Server-resolved timestamp. Preferred over Date.now() because every
-  // timestamp validator in database.rules.json compares against `now`, and a
-  // client clock running fast would otherwise fail the write.
-  function SV() { return firebase.database.ServerValue.TIMESTAMP; }
+  // Server-resolved timestamp. Preferred over Date.now() so a client clock
+  // running fast cannot backdate or postdate a write. Firestore resolves this
+  // server-side and the adapter converts it back to milliseconds on read.
+  function SV() { return firebase.firestore.FieldValue.serverTimestamp(); }
 
   function setWizardStep(step) {
     [1, 2, 3].forEach(function (n) {
@@ -2531,6 +3099,7 @@
 
     if (!consented) { toast("Aadhaar eKYC consent is mandatory before an OTP can be issued.", "warn"); return; }
 
+    showLoading("Requesting Aadhaar OTP…");
     ABDM_ADAPTER.generateAadhaarOtp(aadhaar, mobile).then(function (res) {
       if (!res.ok) { toast(res.message || "OTP request failed.", "error"); return; }
 
@@ -2554,7 +3123,7 @@
       startOtpCountdown(res.expiresAt);
       setWizardStep(2);
       toast("eKYC OTP issued for Aadhaar ending " + res.aadhaarLast4 + ".", "success");
-    }).catch(function (err) { toast("Adapter error: " + err.message, "error"); });
+    }).catch(function (err) { toast("Adapter error: " + err.message, "error"); }).finally(hideLoading);
   }
 
   function startOtpCountdown(expiresAt) {
@@ -2587,6 +3156,7 @@
     const feedback = document.getElementById("otp-feedback");
     if (otp.length !== 6) { toast("Enter the 6-digit OTP.", "warn"); return; }
 
+    showLoading("Verifying Aadhaar OTP…");
     ABDM_ADAPTER.verifyAadhaarOtp(state.otpSession, otp).then(function (res) {
       if (!res.ok) {
         feedback.className = "text-[11px] mt-1.5 text-red-600 font-semibold";
@@ -2610,7 +3180,7 @@
 
       setWizardStep(3);
       toast("eKYC verified. Demographics received.", "success");
-    }).catch(function (err) { toast("Adapter error: " + err.message, "error"); });
+    }).catch(function (err) { toast("Adapter error: " + err.message, "error"); }).finally(hideLoading);
   }
 
   function onAbhaUsernameInput() {
@@ -2646,6 +3216,7 @@
     const addressKey = addressToKey(desiredAddress);
     const btn = document.getElementById("btn-issue-abha");
     btn.disabled = true;
+    showLoading("Creating ABHA…");
 
     fbDb.ref("abhaDirectory/" + addressKey).once("value").then(function (snap) {
       if (snap.exists()) {
@@ -2713,7 +3284,7 @@
     }).catch(function (err) {
       btn.disabled = false;
       toast(err.message, "error");
-    });
+    }).finally(hideLoading);
   }
 
   function recoverExistingAbha() {
@@ -3066,6 +3637,7 @@
     };
     if (req.fhirBundle) cc.fhirBundle = req.fhirBundle;
 
+    showLoading("Linking record…");
     fbDb.ref("careContexts/" + abhaKey).push(cc).then(function () {
       return fbDb.ref("linkRequests/" + abhaKey + "/" + lrId).update({ status: "LINKED", decidedAt: SV() });
     }).then(function () {
@@ -3076,7 +3648,7 @@
     }).then(function () {
       pushActivity("add_link", "Linked " + req.display + " from " + req.hipName, "teal");
       toast("Record linked to your ABHA.", "success");
-    }).catch(function (err) { toast("Approval failed: " + err.message, "error"); });
+    }).catch(function (err) { toast("Approval failed: " + err.message, "error"); }).finally(hideLoading);
   }
 
   function rejectLinkRequest(lrId) {
@@ -3084,6 +3656,7 @@
     if (!req) { toast("Link request not found.", "error"); return; }
     if (req.status !== "PENDING") { toast("This request has already been decided.", "warn"); return; }
 
+    showLoading("Rejecting link request…");
     fbDb.ref("linkRequests/" + state.abhaKey + "/" + lrId).update({ status: "REJECTED", decidedAt: SV() })
       .then(function () {
         return writeAccessLog(state.abhaKey, {
@@ -3092,7 +3665,8 @@
         });
       })
       .then(function () { toast("Link request rejected.", "info"); })
-      .catch(function (err) { toast("Rejection failed: " + err.message, "error"); });
+      .catch(function (err) { toast("Rejection failed: " + err.message, "error"); })
+      .finally(hideLoading);
   }
 
   /* ----- Records ----- */
@@ -3163,7 +3737,9 @@
       + '<button onclick="copyText(state.lastViewedBundle, \'FHIR bundle copied.\')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors">Copy JSON</button>'
       + '<button onclick="downloadBundle(\'' + jsId(ccId) + '\')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors">Download</button>'
       + '</div>'
-      + '<pre class="p-4 code-bg text-slate-300 rounded-xl font-mono text-[11px] overflow-x-auto max-h-96 leading-relaxed whitespace-pre-wrap">' + escapeHtml(pretty) + '</pre>';
+      + (rec.fhirBundle
+        ? fhirViewerHtml(rec.fhirBundle)
+        : '<p class="p-6 text-center text-xs text-slate-400 border border-slate-200 rounded-xl">No FHIR bundle was attached to this care context.</p>');
 
     document.getElementById("record-modal").classList.remove("hidden");
   }
@@ -3213,6 +3789,7 @@
       hipCategory: "Personal health record"
     });
 
+    showLoading("Saving wellness record…");
     fbDb.ref("careContexts/" + state.abhaKey).push({
       careContextRef: "self-" + randomToken(5),
       display: title.slice(0, 200),
@@ -3228,7 +3805,7 @@
       document.getElementById("self-record-title").value = "";
       document.getElementById("self-record-note").value = "";
       toast("Wellness record saved to your ABHA.", "success");
-    }).catch(function (err) { toast("Save failed: " + err.message, "error"); });
+    }).catch(function (err) { toast("Save failed: " + err.message, "error"); }).finally(hideLoading);
   }
 
   /* ----- Consent inbox ----- */
@@ -3328,7 +3905,9 @@
       LINK_REQUESTED: "bg-slate-100 text-slate-700",
       LINK_APPROVED: "bg-teal-100 text-teal-800",
       LINK_REJECTED: "bg-slate-200 text-slate-700",
-      DISCOVERY: "bg-indigo-100 text-indigo-800"
+      DISCOVERY: "bg-indigo-100 text-indigo-800",
+      POLICY_LINKED: "bg-violet-100 text-violet-800",
+      POLICY_UNLINKED: "bg-slate-200 text-slate-700"
     };
     body.innerHTML = state.accessLogs.map(function (l) {
       const tone = tones[l.action] || "bg-slate-100 text-slate-700";
@@ -3350,6 +3929,9 @@
     const purpose = purposeByCode(c.purposeCode);
     const types = String(c.hiTypes || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
     const matches = recordsMatchingConsent(c);
+    // A payer asking to settle a claim is a different proposition from a
+    // clinician asking to treat you, and the review screen has to say so.
+    const fromInsurer = c.requesterType === "INSURER";
 
     state.consentOtp = {
       cid: cid,
@@ -3372,12 +3954,21 @@
 
     document.getElementById("consent-modal-body").innerHTML =
       '<div class="p-4 bg-slate-900 rounded-xl text-white space-y-1">'
-      + '<p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Requesting facility</p>'
+      + '<div class="flex items-center gap-2">'
+      + '<span class="material-symbols-outlined text-base ' + (fromInsurer ? "text-violet-300" : "text-teal-300") + '">'
+      + (fromInsurer ? "shield_with_heart" : "local_hospital") + '</span>'
+      + '<p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">'
+      + (fromInsurer ? "Requesting insurer" : "Requesting facility") + '</p></div>'
       + '<p class="font-bold">' + escapeHtml(c.hipName) + '</p>'
-      + '<p class="text-[11px] font-mono text-teal-300">' + escapeHtml(c.hipId) + '</p>'
+      + '<p class="text-[11px] font-mono ' + (fromInsurer ? "text-violet-300" : "text-teal-300") + '">' + escapeHtml(c.hipId) + '</p>'
+      + (fromInsurer
+        ? '<p class="text-[11px] text-slate-300 pt-1 leading-relaxed">They found you from policy <span class="font-mono text-white">'
+          + escapeHtml(c.policyNumber || "—") + '</span>, which you linked yourself. That resolved to your ABHA and nothing else — this request is how they ask for the rest.</p>'
+        : "")
       + '</div>'
 
       + '<div class="grid grid-cols-2 gap-2 text-[11px]">'
+      + (fromInsurer ? metaCell("Claim reference", c.claimRef || "—") + metaCell("Policy number", c.policyNumber || "—") : "")
       + metaCell("Purpose code", c.purposeCode)
       + metaCell("Purpose", purpose.display)
       + metaCell("Records from", fmtDate(c.dateFrom))
@@ -3456,6 +4047,7 @@
     // Order matters: the payload must exist before the status flips to GRANTED,
     // otherwise a requester polling the consent could observe a live grant with
     // an empty disclosure.
+    showLoading("Signing consent…");
     fbDb.ref("disclosures/" + cid).set(disclosure).then(function () {
       return fbDb.ref("consents/" + cid).update({
         status: "GRANTED",
@@ -3474,7 +4066,7 @@
       closeModal("consent-modal");
       pushActivity("verified_user", "Granted consent to " + c.hipName + " (" + chosen.length + " records)", "emerald");
       toast("Consent granted for " + chosen.length + " record(s).", "success");
-    }).catch(function (err) { toast("Grant failed: " + err.message, "error"); });
+    }).catch(function (err) { toast("Grant failed: " + err.message, "error"); }).finally(hideLoading);
   }
 
   function denyConsent(cid) {
@@ -3482,6 +4074,7 @@
     if (!c) { toast("Consent not found.", "error"); return; }
     if (c.status !== "REQUESTED") { toast("Already decided.", "warn"); return; }
 
+    showLoading("Denying consent…");
     fbDb.ref("consents/" + cid).update({ status: "DENIED", decidedAt: SV() }).then(function () {
       return writeAccessLog(state.abhaKey, {
         consentId: cid, action: "CONSENT_DENIED", hipId: c.hipId, actorLabel: c.hipName,
@@ -3491,7 +4084,7 @@
       closeModal("consent-modal");
       pushActivity("block", "Denied consent to " + c.hipName, "slate");
       toast("Consent denied.", "info");
-    }).catch(function (err) { toast("Deny failed: " + err.message, "error"); });
+    }).catch(function (err) { toast("Deny failed: " + err.message, "error"); }).finally(hideLoading);
   }
 
   function revokeConsent(cid) {
@@ -3501,6 +4094,7 @@
 
     // Flip status first: that single write is what kills the requester's read
     // permission. Deleting the payload afterwards is cleanup, not enforcement.
+    showLoading("Revoking consent…");
     fbDb.ref("consents/" + cid).update({ status: "REVOKED", revokedAt: SV() }).then(function () {
       return fbDb.ref("disclosures/" + cid).remove();
     }).then(function () {
@@ -3511,7 +4105,7 @@
     }).then(function () {
       pushActivity("gpp_bad", "Revoked " + c.hipName + "'s access", "red");
       toast("Access revoked. The facility lost read permission immediately.", "success");
-    }).catch(function (err) { toast("Revoke failed: " + err.message, "error"); });
+    }).catch(function (err) { toast("Revoke failed: " + err.message, "error"); }).finally(hideLoading);
   }
 
   /* ---------- 7. HOSPITAL PORTAL (HIP / HIU) ---------- */
@@ -3626,6 +4220,7 @@
     if (hfr) record.hfrId = hfr.slice(0, 40);
     if (contact) record.contactEmail = contact.slice(0, 254);
 
+    showLoading("Registering facility…");
     fbDb.ref("hips/" + hipId).set(record).then(function () {
       return fbDb.ref("users/" + state.user.uid).update({ hipId: hipId, updatedAt: SV() });
     }).then(function () {
@@ -3642,7 +4237,7 @@
       showApiKey(apiKey);
       pushActivity("domain_add", "Registered facility " + name, "blue");
       toast("Facility registered. Store the API key now — it is not recoverable.", "success");
-    }).catch(function (err) { toast("Registration failed: " + err.message, "error"); });
+    }).catch(function (err) { toast("Registration failed: " + err.message, "error"); }).finally(hideLoading);
   }
 
   function rotateApiKey() {
@@ -3650,6 +4245,7 @@
     const apiKey = "nab_sbx_" + randomToken(24);
     // Deliberately does NOT include `status`: only an admin may write that child,
     // and omitting it keeps its .validate rule from running on this update.
+    showLoading("Rotating API key…");
     fbDb.ref("hips/" + state.hip.hipId).update({
       apiKeyHash: sha256Hex(apiKey),
       apiKeyPrefix: apiKey.slice(0, 16),
@@ -3658,15 +4254,17 @@
     }).then(function () {
       showApiKey(apiKey);
       toast("API key rotated. The previous key stopped working immediately.", "success");
-    }).catch(function (err) { toast("Rotation failed: " + err.message, "error"); });
+    }).catch(function (err) { toast("Rotation failed: " + err.message, "error"); }).finally(hideLoading);
   }
 
-  function showApiKey(apiKey) {
+  // fillConsole is false for an insurer key: the API console authenticates as a
+  // facility, so pre-filling it with a payer's key would only produce a 401.
+  function showApiKey(apiKey, fillConsole) {
     state.issuedApiKey = apiKey;
     document.getElementById("apikey-value").innerText = apiKey;
     document.getElementById("apikey-modal").classList.remove("hidden");
     const field = document.getElementById("api-key-input");
-    if (field) field.value = apiKey;
+    if (field && fillConsole !== false) field.value = apiKey;
   }
 
   function copyIssuedApiKey() {
@@ -3694,6 +4292,7 @@
     host.classList.remove("hidden");
     host.innerHTML = '<p class="text-slate-500">Resolving…</p>';
 
+    showLoading("Finding patient…");
     resolveAbhaAddress(document.getElementById("discover-input").value).then(function (entry) {
       state.discovered = entry;
       host.innerHTML =
@@ -3719,7 +4318,7 @@
       });
     }).catch(function (err) {
       host.innerHTML = '<p class="text-red-700 font-semibold">' + escapeHtml(err.message) + "</p>";
-    });
+    }).finally(hideLoading);
   }
 
   function useDiscovered(targetId) {
@@ -3740,6 +4339,7 @@
 
     if (!concept && !note) { toast("Pick a NAMASTE concept or write a clinical note.", "warn"); return; }
 
+    showLoading("Sending care-context request…");
     resolveAbhaAddress(document.getElementById("cc-abha-address").value).then(function (entry) {
       const display = (concept ? concept.termEnglish + " — " : "") + (HI_TYPES.filter(function (t) { return t.code === hiType; })[0] || { display: hiType }).display;
       const bundle = buildCareContextBundle({
@@ -3772,7 +4372,7 @@
         pushActivity("send", "Link request sent to " + entry.abhaAddress, "blue");
         toast("Link request sent. It appears in the patient's portal for approval.", "success");
       });
-    }).catch(function (err) { toast(err.message, "error"); });
+    }).catch(function (err) { toast(err.message, "error"); }).finally(hideLoading);
   }
 
   /* ----- Consent request ----- */
@@ -3791,6 +4391,7 @@
     if (!dateFrom || !dateTo) { toast("Set both ends of the record date range.", "warn"); return; }
     if (dateFrom > dateTo) { toast("'Records from' cannot be after 'Records to'.", "warn"); return; }
 
+    showLoading("Sending consent request…");
     resolveAbhaAddress(document.getElementById("cr-abha-address").value).then(function (entry) {
       const cid = "consent-" + randomToken(8);
       const purpose = purposeByCode(purposeCode);
@@ -3830,7 +4431,7 @@
         pushActivity("how_to_reg", "Consent requested from " + entry.abhaAddress, "amber");
         toast("Consent request sent. Nothing is readable until the patient signs it.", "success");
       });
-    }).catch(function (err) { toast(err.message, "error"); });
+    }).catch(function (err) { toast(err.message, "error"); }).finally(hideLoading);
   }
 
   function renderHipConsents() {
@@ -3873,6 +4474,7 @@
     const c = state.consentMap[cid];
     if (!c) { toast("Consent not found.", "error"); return; }
 
+    showLoading("Fetching consented records…");
     const panel = document.getElementById("hip-fetch-panel");
     const body = document.getElementById("hip-fetch-body");
     const subtitle = document.getElementById("hip-fetch-subtitle");
@@ -3889,6 +4491,19 @@
         v.__id = child.key;
         items.push(v);
       });
+
+      if (!items.length) {
+        const payload = snap.val();
+        if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+          Object.keys(payload).forEach(function (key) {
+            const value = payload[key];
+            if (value && typeof value === "object") {
+              value.__id = key;
+              items.push(value);
+            }
+          });
+        }
+      }
       state.fetched = items;
 
       writeAccessLog(c.abhaKey, {
@@ -3899,6 +4514,7 @@
 
       if (!items.length) {
         body.innerHTML = '<div class="p-6 text-center text-xs text-slate-500">Consent is live, but the patient disclosed no records inside this scope.</div>';
+        hideLoading();
         return;
       }
 
@@ -3914,8 +4530,10 @@
           + "</div>";
       }).join("");
 
+      hideLoading();
       toast("Fetched " + items.length + " record(s). Logged to the patient's ledger.", "success");
     }).catch(function (err) {
+      hideLoading();
       const reason = isConsentLive(c)
         ? err.message
         : (c.status === "REVOKED" ? "Consent was revoked by the patient."
@@ -3937,8 +4555,9 @@
     });
   }
 
-  function openFetchedRecord(ccId) {
-    const rec = (state.fetched || []).filter(function (r) { return r.__id === ccId; })[0];
+  function openFetchedRecord(ccId, source) {
+    const list = source === "claim" ? (state.claimFetched || []) : (state.fetched || []);
+    const rec = list.filter(function (r) { return r.__id === ccId; })[0];
     if (!rec) { toast("Record not found.", "error"); return; }
     let pretty = "// No FHIR bundle was included in this disclosure.";
     if (rec.fhirBundle) {
@@ -3953,13 +4572,663 @@
       + metaCell("Facility", rec.hipName || rec.hipId || "—") + metaCell("Care context", rec.careContextRef)
       + "</div>"
       + '<button onclick="copyText(state.lastViewedBundle, \'FHIR bundle copied.\')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors">Copy JSON</button>'
-      + '<pre class="p-4 code-bg text-slate-300 rounded-xl font-mono text-[11px] overflow-x-auto max-h-96 leading-relaxed whitespace-pre-wrap">' + escapeHtml(pretty) + "</pre>";
+      + (rec.fhirBundle
+        ? fhirViewerHtml(rec.fhirBundle)
+        : '<p class="p-6 text-center text-xs text-slate-400 border border-slate-200 rounded-xl">No FHIR bundle was included in this disclosure.</p>');
     document.getElementById("record-modal").classList.remove("hidden");
   }
 
   function closeFetchPanel() {
     document.getElementById("hip-fetch-panel").classList.add("hidden");
     state.fetched = [];
+  }
+
+  /* ---------- 7b. INSURANCE — POLICIES AND THE PAYER PORTAL ----------
+     An insurer's entry point is the policy number and nothing else: no ABHA
+     address, no phone number, no name. What the policy number buys them is a
+     *resolution*, not a disclosure — it maps to the patient's ABHA so a consent
+     request can be addressed, and stops there. Reading treatment details still
+     goes through the same artifact, the same signature and the same database
+     rules a hospital faces, under purpose code HPAYMT.
+
+     Storage mirrors the ABHA pattern, for the same reason. `policyDirectory` is
+     the lookup index the insurer reads, keyed by the normalised policy number;
+     `patientPolicies/<abhaKey>` is the patient's own list. Both are written by
+     the patient alone — an insurer cannot attach a policy to an ABHA that has
+     not claimed it, which is what stops policy numbers being used to fish for
+     whoever happens to hold one.
+
+     A consent raised here reuses the consent document a hospital raises, so the
+     patient's inbox, the signature, the disclosure payload and the audit ledger
+     are one pipeline rather than two. `hipId`/`hipName` therefore carry the
+     *requester's* id and name whatever the requester is; `requesterType` says
+     which, and `insurerId` is what the security rules authorise against.     */
+
+  const CLAIM_HI_TYPES = ["OPConsultation", "Prescription", "DiagnosticReport", "DischargeSummary"];
+
+  function normalisePolicyNumber(raw) {
+    return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  }
+
+  function formatPolicyNumber(raw) {
+    return String(raw || "").toUpperCase().trim();
+  }
+
+  /* ----- Patient side: linking a policy to the ABHA ----- */
+
+  function openPolicyModal() {
+    if (!state.abhaKey) { toast("Create an ABHA first — a policy is linked to it.", "warn"); return; }
+    const from = document.getElementById("policy-valid-from");
+    const to = document.getElementById("policy-valid-to");
+    if (from && !from.value) from.value = todayIso(-180);
+    if (to && !to.value) to.value = todayIso(185);
+    populateInsurerSelect();
+    openModal("policy-modal");
+  }
+
+  function populateInsurerSelect() {
+    const sel = document.getElementById("policy-insurer");
+    const empty = document.getElementById("policy-insurer-empty");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Loading insurers…</option>';
+    fbDb.ref("insurerDirectory").once("value").then(function (snap) {
+      const list = [];
+      snap.forEach(function (child) {
+        const v = child.val() || {};
+        v.__id = child.key;
+        if (v.status !== "SUSPENDED") list.push(v);
+      });
+      list.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || "")); });
+      state.insurerDirectory = list;
+      if (empty) empty.classList.toggle("hidden", list.length > 0);
+      sel.innerHTML = list.length
+        ? list.map(function (i) {
+          return '<option value="' + escapeHtml(i.insurerId) + '">' + escapeHtml(i.name)
+            + " · " + escapeHtml(i.type || "Insurer") + (i.city ? ", " + escapeHtml(i.city) : "") + "</option>";
+        }).join("")
+        : '<option value="">— no insurer registered yet —</option>';
+    }).catch(function (err) {
+      sel.innerHTML = '<option value="">— could not load the insurer directory —</option>';
+      toast("Insurer directory unavailable: " + err.message, "error");
+    });
+  }
+
+  function linkPolicy() {
+    if (!state.abhaKey || !state.abha) { toast("Create an ABHA first.", "warn"); return; }
+    const insurerId = document.getElementById("policy-insurer").value;
+    const rawNumber = document.getElementById("policy-number").value;
+    const policyKey = normalisePolicyNumber(rawNumber);
+    const plan = (document.getElementById("policy-plan").value || "").trim();
+    const validFrom = document.getElementById("policy-valid-from").value || "";
+    const validTo = document.getElementById("policy-valid-to").value || "";
+
+    if (!insurerId) { toast("Choose the insurer that issued this policy.", "warn"); return; }
+    if (policyKey.length < 6 || policyKey.length > 40) {
+      toast("A policy number must be 6–40 letters and digits.", "warn"); return;
+    }
+    if (validFrom && validTo && validFrom > validTo) { toast("'Valid from' cannot be after 'valid to'.", "warn"); return; }
+
+    const insurer = (state.insurerDirectory || []).filter(function (i) { return i.insurerId === insurerId; })[0] || {};
+    const record = {
+      policyKey: policyKey,
+      policyNumber: formatPolicyNumber(rawNumber),
+      insurerId: insurerId,
+      insurerName: insurer.name || insurerId,
+      abhaKey: state.abhaKey,
+      abhaAddress: state.abha.abhaAddress,
+      patientUid: state.user.uid,
+      // The insurer already knows who their policyholder is; what they must not
+      // gain from a lookup is the rest of the ABHA profile, so the directory
+      // entry carries the same masked demographics discovery returns.
+      memberNameMasked: maskName(state.abha.fullName),
+      abhaNumberMasked: maskAbhaNumber(state.abha.abhaNumber),
+      gender: state.abha.gender || "",
+      yearOfBirth: state.abha.yearOfBirth || null,
+      status: "ACTIVE",
+      linkedAt: SV()
+    };
+    if (plan) record.planName = plan.slice(0, 120);
+    if (validFrom) record.validFrom = validFrom;
+    if (validTo) record.validTo = validTo;
+
+    // Deliberately no "is this number free?" pre-read. A get on a document that
+    // does not exist is denied by the rules just as another patient's document
+    // is, so a pre-read cannot tell the two apart — while the write rules can:
+    // a create needs only that this is my ABHA, an update needs that the entry
+    // is already mine. The denial below is therefore the answer, not a fallback.
+    showLoading("Linking policy…");
+    fbDb.ref("policyDirectory/" + policyKey).set(record).then(function () {
+      return fbDb.ref("patientPolicies/" + state.abhaKey + "/" + policyKey).set(record);
+    }).then(function () {
+      return writeAccessLog(state.abhaKey, {
+        action: "POLICY_LINKED", hipId: insurerId, actorLabel: record.insurerName,
+        detail: "Linked policy " + record.policyNumber + (plan ? " (" + plan + ")" : "")
+      });
+    }).then(function () {
+      closeModal("policy-modal");
+      document.getElementById("policy-number").value = "";
+      document.getElementById("policy-plan").value = "";
+      pushActivity("shield_with_heart", "Linked policy " + record.policyNumber + " to " + record.insurerName, "violet");
+      toast("Policy linked. Your insurer can now find this claim — and still has to ask before reading anything.", "success");
+    }).catch(function (err) {
+      const taken = err && (err.code === "permission-denied" || String(err.message || "").indexOf("permission") !== -1);
+      toast(taken
+        ? "That policy number is already linked to a different ABHA. If it is genuinely yours, ask the insurer to reissue it."
+        : err.message, "error");
+    }).finally(hideLoading);
+  }
+
+  function unlinkPolicy(policyKey) {
+    const pol = (state.policies || []).filter(function (p) { return p.policyKey === policyKey; })[0];
+    if (!pol) { toast("Policy not found.", "error"); return; }
+
+    showLoading("Unlinking policy…");
+    fbDb.ref("policyDirectory/" + policyKey).remove().then(function () {
+      return fbDb.ref("patientPolicies/" + state.abhaKey + "/" + policyKey).remove();
+    }).then(function () {
+      return writeAccessLog(state.abhaKey, {
+        action: "POLICY_UNLINKED", hipId: pol.insurerId, actorLabel: pol.insurerName,
+        detail: "Unlinked policy " + pol.policyNumber + ". Future lookups by that number resolve to nothing."
+      });
+    }).then(function () {
+      pushActivity("link_off", "Unlinked policy " + pol.policyNumber, "slate");
+      toast("Policy unlinked. Consents already granted stay valid until they expire — revoke them separately.", "info");
+    }).catch(function (err) { toast("Unlink failed: " + err.message, "error"); }).finally(hideLoading);
+  }
+
+  function renderPatientPolicies() {
+    const host = document.getElementById("patient-policies-list");
+    const counter = document.getElementById("policy-count");
+    if (!host) return;
+    const list = state.policies || [];
+    if (counter) counter.innerText = String(list.length);
+
+    if (!list.length) {
+      host.innerHTML = '<div class="p-8 text-center text-xs text-slate-400">No policy linked yet. Link one so your insurer can settle a claim without you emailing them your records.</div>';
+      return;
+    }
+
+    host.innerHTML = list.map(function (p) {
+      const expired = p.validTo && p.validTo < todayIso();
+      const tone = expired ? "bg-slate-200 text-slate-700" : "bg-emerald-100 text-emerald-800";
+      return '<div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">'
+        + '<div class="flex items-center gap-3 min-w-0">'
+        + '<span class="material-symbols-outlined text-lg bg-violet-100 text-violet-700 rounded-lg p-1.5 shrink-0">shield_with_heart</span>'
+        + '<div class="min-w-0">'
+        + '<p class="text-xs font-bold text-slate-900 truncate">' + escapeHtml(p.insurerName || p.insurerId) + "</p>"
+        + '<p class="text-[11px] font-mono text-slate-600 truncate">' + escapeHtml(p.policyNumber) + "</p>"
+        + '<p class="text-[11px] text-slate-500 truncate">' + escapeHtml(p.planName || "Policy")
+        + (p.validFrom || p.validTo ? " · " + fmtDate(p.validFrom) + " → " + fmtDate(p.validTo) : "") + "</p>"
+        + '<span class="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ' + tone + '">'
+        + (expired ? "EXPIRED" : "ACTIVE") + "</span>"
+        + "</div></div>"
+        + '<button onclick="unlinkPolicy(\'' + jsId(p.policyKey) + '\')" class="px-3 py-1.5 bg-slate-100 hover:bg-red-100 hover:text-red-700 text-slate-700 rounded-lg text-[11px] font-bold transition-colors shrink-0">Unlink</button>'
+        + "</div>";
+    }).join("");
+  }
+
+  /* ----- Insurer side: registration ----- */
+
+  function insurerBlocked() {
+    if (!state.insurer) { toast("Register your insurance company first.", "warn"); return true; }
+    if (state.insurer.status === "SUSPENDED") {
+      toast("Insurer suspended by the administrator — lookups and requests are blocked.", "error");
+      return true;
+    }
+    return false;
+  }
+
+  function registerInsurer() {
+    if (!state.user) { openAuthModal(); return; }
+    if (state.insurer) { toast("This account already has an insurer registered.", "warn"); return; }
+
+    const name = (document.getElementById("insurer-name").value || "").trim();
+    const type = document.getElementById("insurer-type").value;
+    const irdai = (document.getElementById("insurer-irdai").value || "").trim();
+    const city = (document.getElementById("insurer-city").value || "").trim();
+    const contact = (document.getElementById("insurer-contact").value || "").trim();
+    if (name.length < 3) { toast("Enter the company name.", "warn"); return; }
+
+    const insurerId = "INS-" + randomToken(6).toUpperCase();
+    const apiKey = "nab_ins_" + randomToken(24);
+
+    const record = {
+      insurerId: insurerId,
+      name: name.slice(0, 120),
+      type: type,
+      ownerUid: state.user.uid,
+      status: "ACTIVE",
+      apiKeyHash: sha256Hex(apiKey),
+      apiKeyPrefix: apiKey.slice(0, 16),
+      apiKeyIssuedAt: SV(),
+      createdAt: SV()
+    };
+    if (irdai) record.irdaiRegNo = irdai.slice(0, 40);
+    if (city) record.city = city.slice(0, 60);
+    if (contact) record.contactEmail = contact.slice(0, 254);
+
+    // The directory is the public half: a patient must be able to pick their
+    // insurer from a list without being able to read its API key fingerprint.
+    const directory = {
+      insurerId: insurerId,
+      name: record.name,
+      type: type,
+      ownerUid: state.user.uid,
+      status: "ACTIVE",
+      createdAt: SV()
+    };
+    if (irdai) directory.irdaiRegNo = record.irdaiRegNo;
+    if (city) directory.city = record.city;
+
+    showLoading("Registering insurer…");
+    fbDb.ref("insurers/" + insurerId).set(record).then(function () {
+      return fbDb.ref("insurerDirectory/" + insurerId).set(directory);
+    }).then(function () {
+      return fbDb.ref("users/" + state.user.uid).update({ insurerId: insurerId, updatedAt: SV() });
+    }).then(function () {
+      return fbDb.ref("auditLogs").push({
+        action: "INSURER_REGISTERED", actorUid: state.user.uid, actorEmail: state.user.email,
+        target: insurerId, detail: name + " (" + type + ")", ts: SV()
+      }).catch(function () { /* audit is best-effort for non-admins */ });
+    }).then(function () {
+      state.insurer = record;
+      state.insurer.status = "ACTIVE";
+      attachInsurerListeners(insurerId);
+      updateGates();
+      renderInsurerCard();
+      showApiKey(apiKey, false);
+      pushActivity("add_business", "Registered insurer " + name, "violet");
+      toast("Insurer registered. Store the API key now — it is not recoverable.", "success");
+    }).catch(function (err) { toast("Registration failed: " + err.message, "error"); }).finally(hideLoading);
+  }
+
+  function rotateInsurerApiKey() {
+    if (!state.insurer) { toast("Register your insurance company first.", "warn"); return; }
+    const apiKey = "nab_ins_" + randomToken(24);
+    showLoading("Rotating API key…");
+    fbDb.ref("insurers/" + state.insurer.insurerId).update({
+      apiKeyHash: sha256Hex(apiKey),
+      apiKeyPrefix: apiKey.slice(0, 16),
+      apiKeyIssuedAt: SV(),
+      updatedAt: SV()
+    }).then(function () {
+      showApiKey(apiKey, false);
+      toast("API key rotated. The previous key stopped working immediately.", "success");
+    }).catch(function (err) { toast("Rotation failed: " + err.message, "error"); }).finally(hideLoading);
+  }
+
+  function renderInsurerCard() {
+    const ins = state.insurer;
+    if (!ins) return;
+    document.getElementById("insurer-card-name").innerText = ins.name || "—";
+    document.getElementById("insurer-card-type").innerText = ins.type || "Insurer";
+    document.getElementById("insurer-card-city").innerText = ins.city || "—";
+    document.getElementById("insurer-card-irdai").innerText = ins.irdaiRegNo || "not supplied";
+    document.getElementById("insurer-card-id").innerText = ins.insurerId || "—";
+
+    const badge = document.getElementById("insurer-card-status");
+    const suspended = ins.status === "SUSPENDED";
+    badge.innerText = ins.status || "ACTIVE";
+    badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border "
+      + (suspended ? "bg-red-500/20 text-red-300 border-red-400/30" : "bg-emerald-500/20 text-emerald-300 border-emerald-400/30");
+    document.getElementById("insurer-suspended-warning").classList.toggle("hidden", !suspended);
+  }
+
+  /* ----- Insurer side: policy lookup ----- */
+
+  function lookupPolicy() {
+    if (insurerBlocked()) return;
+    const raw = document.getElementById("policy-lookup-input").value;
+    const policyKey = normalisePolicyNumber(raw);
+    const host = document.getElementById("policy-lookup-result");
+    host.classList.remove("hidden");
+
+    if (policyKey.length < 6) {
+      host.innerHTML = '<p class="text-red-700 font-semibold">Enter the full policy number.</p>';
+      return;
+    }
+
+    host.innerHTML = '<p class="text-slate-500">Resolving…</p>';
+    showLoading("Resolving policy…");
+
+    // The read is attempted for real: what refuses a policy issued by another
+    // insurer is the database rule, not this function. A number that does not
+    // exist and a number belonging to a rival are both denied there, so the two
+    // reach the catch below as one outcome — which is the outcome a payer should
+    // get. The insurerId re-check is redundant against those rules and is kept
+    // only so a misdeployed ruleset cannot turn this into a lookup for anyone.
+    fbDb.ref("policyDirectory/" + policyKey).once("value").then(function (snap) {
+      if (!snap.exists()) throw new Error("no-match");
+      const pol = snap.val();
+      if (pol.insurerId !== state.insurer.insurerId) throw new Error("no-match");
+      state.lookedUpPolicy = pol;
+
+      const live = state.insurerConsents.filter(function (c) {
+        return c.policyKey === policyKey && isConsentLive(c);
+      })[0];
+
+      host.innerHTML =
+        '<div class="flex items-center gap-2 pb-2 border-b border-slate-200">'
+        + '<span class="material-symbols-outlined text-violet-600 text-lg">verified_user</span>'
+        + '<p class="font-bold text-slate-900">' + escapeHtml(pol.memberNameMasked || "—") + "</p>"
+        + '<span class="ml-auto px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[10px] font-bold">POLICYHOLDER</span>'
+        + "</div>"
+        + '<div class="grid grid-cols-2 gap-2 pt-1">'
+        + metaCell("Policy number", pol.policyNumber)
+        + metaCell("Plan", pol.planName || "—")
+        + metaCell("Cover period", fmtDate(pol.validFrom) + " → " + fmtDate(pol.validTo))
+        + metaCell("ABHA number", pol.abhaNumberMasked || "—")
+        + metaCell("Gender / YoB", (pol.gender || "-") + " / " + (pol.yearOfBirth || "—"))
+        + metaCell("Linked on", fmtDateTime(pol.linkedAt))
+        + "</div>"
+        + '<p class="text-[11px] text-slate-500 leading-relaxed pt-1">The policy number resolved to a health identity, and to nothing more. Demographics are masked; no diagnosis, no facility, no date of treatment is visible at this step.</p>'
+        + (live
+          ? '<div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center gap-2">'
+            + '<p class="text-[11px] text-emerald-900 flex-1"><strong>A grant is already live for this policy</strong> — expires ' + escapeHtml(relativeExpiry(Number(live.expiryAt))) + ".</p>"
+            + '<button onclick="fetchClaimRecords(\'' + jsId(live.consentId) + '\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-colors shrink-0">View treatment details</button>'
+            + "</div>"
+          : '<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">'
+            + '<p class="text-[11px] text-amber-900 leading-relaxed">No live grant for this policy. Raise a claim access request below — the policyholder decides, record by record.</p></div>');
+
+      prepareClaimRequest(pol);
+      hideLoading();
+    }).catch(function (err) {
+      hideLoading();
+      state.lookedUpPolicy = null;
+      document.getElementById("claim-request-wrap").classList.add("hidden");
+      const denied = err && (err.message === "no-match" || err.code === "permission-denied"
+        || String(err.message || "").indexOf("permission") !== -1);
+      host.innerHTML = denied
+        ? '<div class="space-y-1"><p class="text-red-700 font-semibold">No policy of yours matches that number.</p>'
+          + '<p class="text-[11px] text-slate-500 leading-relaxed">A policy resolves only for the insurer that issued it, and only once the policyholder has linked it to their ABHA. The two cases are deliberately indistinguishable from here.</p></div>'
+        : '<p class="text-red-700 font-semibold">' + escapeHtml(err.message) + "</p>";
+    });
+  }
+
+  function prepareClaimRequest(pol) {
+    const wrap = document.getElementById("claim-request-wrap");
+    wrap.classList.remove("hidden");
+    document.getElementById("claim-request-subtitle").innerText =
+      pol.memberNameMasked + " · policy " + pol.policyNumber;
+
+    const from = document.getElementById("claim-date-from");
+    const to = document.getElementById("claim-date-to");
+    // Default the window to the cover period: a payer has no business asking
+    // for records from outside the term they are liable for.
+    from.value = pol.validFrom || todayIso(-365);
+    to.value = (pol.validTo && pol.validTo < todayIso()) ? pol.validTo : todayIso();
+
+    const host = document.getElementById("claim-hitypes");
+    if (host && !host.children.length) {
+      host.innerHTML = HI_TYPES.map(function (t) {
+        const s = hiTypeStyle(t.code);
+        const on = CLAIM_HI_TYPES.indexOf(t.code) !== -1;
+        return '<label class="flex items-center gap-1.5 px-2.5 py-1.5 border border-slate-200 rounded-lg cursor-pointer hover:border-violet-500 transition-colors">'
+          + '<input type="checkbox" value="' + escapeHtml(t.code) + '"' + (on ? " checked" : "")
+          + ' class="claim-hitype-cb rounded border-slate-300 text-violet-600 focus:ring-violet-500" />'
+          + '<span class="material-symbols-outlined text-sm ' + s.tone + ' rounded p-0.5">' + s.icon + "</span>"
+          + '<span class="text-[11px] font-semibold text-slate-700">' + escapeHtml(t.code) + "</span></label>";
+      }).join("");
+    }
+  }
+
+  /* ----- Insurer side: claim access request ----- */
+
+  function raiseClaimConsent() {
+    if (insurerBlocked()) return;
+    const pol = state.lookedUpPolicy;
+    if (!pol) { toast("Look up a policy number first.", "warn"); return; }
+
+    const claimRef = (document.getElementById("claim-ref").value || "").trim();
+    const dateFrom = document.getElementById("claim-date-from").value;
+    const dateTo = document.getElementById("claim-date-to").value;
+    const ttl = Number(document.getElementById("claim-expiry").value);
+    const reason = (document.getElementById("claim-reason").value || "").trim();
+    const hiTypes = Array.prototype.slice.call(document.querySelectorAll(".claim-hitype-cb"))
+      .filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
+
+    if (!claimRef) { toast("Enter the claim reference this request belongs to.", "warn"); return; }
+    if (!hiTypes.length) { toast("Select at least one health information type.", "warn"); return; }
+    if (!dateFrom || !dateTo) { toast("Set both ends of the treatment date range.", "warn"); return; }
+    if (dateFrom > dateTo) { toast("'Treatment from' cannot be after 'treatment to'.", "warn"); return; }
+
+    const cid = "consent-" + randomToken(8);
+    const purpose = purposeByCode("HPAYMT");
+    const payload = {
+      consentId: cid,
+      requesterUid: state.user.uid,
+      requesterType: "INSURER",
+      // Generic requester identity — the same two fields a hospital fills, so
+      // the patient's inbox, the ledger and the disclosure read need no branch.
+      hipId: state.insurer.insurerId,
+      hipName: state.insurer.name,
+      insurerId: state.insurer.insurerId,
+      insurerName: state.insurer.name,
+      policyKey: pol.policyKey,
+      policyNumber: pol.policyNumber,
+      claimRef: claimRef.slice(0, 60),
+      patientUid: pol.patientUid,
+      abhaKey: pol.abhaKey,
+      abhaAddress: pol.abhaAddress,
+      purposeCode: "HPAYMT",
+      purposeText: purpose.display,
+      hiTypes: hiTypes.join(","),
+      status: "REQUESTED",
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      expiryAt: serverNow() + ttl,
+      createdAt: SV()
+    };
+    if (reason) payload.requestNote = reason.slice(0, 300);
+
+    showLoading("Sending claim access request…");
+    fbDb.ref("consents/" + cid).set(payload).then(function () {
+      return fbDb.ref("patientConsents/" + pol.abhaKey + "/" + cid).set(SV());
+    }).then(function () {
+      return fbDb.ref("insurerConsents/" + state.insurer.insurerId + "/" + cid).set(SV());
+    }).then(function () {
+      return writeAccessLog(pol.abhaKey, {
+        consentId: cid, action: "CONSENT_REQUESTED", hipId: state.insurer.insurerId,
+        actorLabel: state.insurer.name, purposeCode: "HPAYMT",
+        detail: "Claim " + payload.claimRef + " on policy " + pol.policyNumber + " — "
+          + hiTypes.length + " HI type(s), " + dateFrom + " → " + dateTo
+      });
+    }).then(function () {
+      document.getElementById("claim-reason").value = "";
+      pushActivity("receipt_long", "Claim access requested for policy " + pol.policyNumber, "violet");
+      toast("Request sent to the policyholder. Nothing is readable until they sign it.", "success");
+    }).catch(function (err) { toast(err.message, "error"); }).finally(hideLoading);
+  }
+
+  function renderInsurerConsents() {
+    const host = document.getElementById("insurer-consents-list");
+    const counter = document.getElementById("insurer-consent-count");
+    if (!host) return;
+    const list = state.insurerConsents || [];
+    if (counter) counter.innerText = String(list.length);
+
+    if (!list.length) {
+      host.innerHTML = '<div class="p-8 text-center text-xs text-slate-400">No claim requests raised yet.</div>';
+      return;
+    }
+
+    host.innerHTML = list.map(function (c) {
+      const live = isConsentLive(c);
+      const expiredGrant = c.status === "GRANTED" && !live;
+      const label = expiredGrant ? "EXPIRED" : c.status;
+      const tone = live ? "bg-emerald-100 text-emerald-800"
+        : c.status === "REQUESTED" ? "bg-amber-100 text-amber-800"
+        : c.status === "REVOKED" ? "bg-red-100 text-red-800" : "bg-slate-200 text-slate-700";
+      const btn = live
+        ? '<button onclick="fetchClaimRecords(\'' + jsId(c.consentId) + '\')" class="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-[11px] font-bold transition-colors shrink-0">View treatment details</button>'
+        : '<button onclick="fetchClaimRecords(\'' + jsId(c.consentId) + '\')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[11px] font-bold transition-colors shrink-0">Try fetch</button>';
+      return '<div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">'
+        + '<div class="min-w-0 space-y-0.5">'
+        + '<p class="text-xs font-bold text-slate-900 truncate">Claim ' + escapeHtml(c.claimRef || "—")
+        + ' <span class="text-slate-400 font-normal">·</span> <span class="font-mono">' + escapeHtml(c.policyNumber || "—") + "</span></p>"
+        + '<p class="text-[11px] text-slate-500 truncate"><span class="font-mono">' + escapeHtml(c.purposeCode) + "</span> · "
+        + escapeHtml(String(c.hiTypes || "").split(",").join(", ")) + "</p>"
+        + '<p class="text-[11px] text-slate-400">' + fmtDate(c.dateFrom) + " → " + fmtDate(c.dateTo)
+        + (live ? " · expires " + relativeExpiry(Number(c.expiryAt)) : "") + "</p>"
+        + '<span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ' + tone + '">' + escapeHtml(label) + "</span>"
+        + (typeof c.disclosedCount === "number"
+          ? ' <span class="text-[10px] text-slate-400">' + c.disclosedCount + " record(s) released</span>" : "")
+        + "</div>" + btn + "</div>";
+    }).join("");
+  }
+
+  /* ----- Insurer side: reading the disclosure ----- */
+
+  // A claims assessor adjudicates on the biomedical code, so the coding block a
+  // record carries is pulled out of the bundle and shown as a line item rather
+  // than left buried in the JSON.
+  function claimLineItems(record) {
+    if (!record.fhirBundle) return [];
+    let bundle;
+    try { bundle = JSON.parse(record.fhirBundle); } catch (e) { return []; }
+    const entries = Array.isArray(bundle.entry) ? bundle.entry : [];
+    const items = [];
+    entries.forEach(function (e) {
+      const r = e && e.resource;
+      if (!r) return;
+      if (r.resourceType !== "Condition" && r.resourceType !== "DiagnosticReport") return;
+      const cc = r.code || {};
+      items.push({ text: cc.text || "", codings: Array.isArray(cc.coding) ? cc.coding : [] });
+    });
+    return items;
+  }
+
+  function codingBySystem(codings, system) {
+    for (let i = 0; i < codings.length; i++) {
+      if (codings[i].system === system) return codings[i];
+    }
+    return null;
+  }
+
+  function renderClaimSummary(consent, records) {
+    const host = document.getElementById("claim-summary");
+    if (!host) return;
+    if (!records.length) { host.classList.add("hidden"); host.innerHTML = ""; return; }
+
+    const mms = {};
+    let diagnoses = 0;
+    records.forEach(function (r) {
+      claimLineItems(r).forEach(function (item) {
+        diagnoses += 1;
+        const c = codingBySystem(item.codings, CODE_SYSTEMS.icd11mms);
+        if (c && c.code) mms[c.code] = (mms[c.code] || 0) + 1;
+      });
+    });
+    const dates = records.map(function (r) { return r.date; }).filter(Boolean).sort();
+    const facilities = {};
+    records.forEach(function (r) { facilities[r.hipName || r.hipId || "—"] = true; });
+
+    host.classList.remove("hidden");
+    host.innerHTML =
+      '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">'
+      + metaCell("Claim", consent.claimRef || "—")
+      + metaCell("Records released", String(records.length))
+      + metaCell("Treatment span", dates.length ? fmtDate(dates[0]) + " → " + fmtDate(dates[dates.length - 1]) : "—")
+      + metaCell("Facilities", String(Object.keys(facilities).length))
+      + "</div>"
+      + (Object.keys(mms).length
+        ? '<div><p class="text-[10px] uppercase font-bold text-slate-400 mb-1.5">ICD-11 MMS codes to adjudicate on ('
+          + diagnoses + " diagnosis line(s))</p>"
+          + '<div class="flex flex-wrap gap-1.5">' + Object.keys(mms).map(function (code) {
+            return fhirChip("ICD-11 MMS", code + (mms[code] > 1 ? " ×" + mms[code] : ""),
+              "bg-amber-50 text-amber-900 border-amber-200");
+          }).join("") + "</div>"
+          + '<p class="text-[10px] text-slate-500 mt-1.5 leading-relaxed">Every one of these was produced automatically from the NAMASTE term the AYUSH practitioner actually recorded. The clinician never had to think in billing codes, and you never have to guess what the Sanskrit meant.</p></div>'
+        : '<p class="text-[11px] text-slate-500">The released records carry no coded diagnosis — narrative only.</p>');
+  }
+
+  function fetchClaimRecords(cid) {
+    const c = state.consentMap[cid];
+    if (!c) { toast("Consent not found.", "error"); return; }
+
+    showLoading("Fetching released records…");
+    const panel = document.getElementById("claim-fetch-panel");
+    const body = document.getElementById("claim-fetch-body");
+    const summary = document.getElementById("claim-summary");
+    panel.classList.remove("hidden");
+    document.getElementById("claim-fetch-subtitle").innerText =
+      "Claim " + (c.claimRef || "—") + " · policy " + (c.policyNumber || "—") + " · consent " + cid;
+    summary.classList.add("hidden");
+    body.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">Requesting…</div>';
+
+    fbDb.ref("disclosures/" + cid).once("value").then(function (snap) {
+      const items = [];
+      snap.forEach(function (child) {
+        const v = child.val() || {};
+        v.__id = child.key;
+        items.push(v);
+      });
+      state.claimFetched = items;
+
+      writeAccessLog(c.abhaKey, {
+        consentId: cid, action: "FETCH_SUCCESS", hipId: c.insurerId || c.hipId, actorLabel: c.hipName,
+        purposeCode: c.purposeCode, recordCount: items.length,
+        detail: "Insurer read the disclosure for claim " + (c.claimRef || "—") + " (" + items.length + " record(s))"
+      });
+
+      hideLoading();
+      if (!items.length) {
+        body.innerHTML = '<div class="p-6 text-center text-xs text-slate-500">The grant is live, but the policyholder released no record inside this scope.</div>';
+        return;
+      }
+
+      renderClaimSummary(c, items);
+      body.innerHTML = items.map(function (r) {
+        const style = hiTypeStyle(r.hiType);
+        const lines = claimLineItems(r);
+        const chips = lines.map(function (item) {
+          return item.codings.map(fhirCodingChip).join("");
+        }).join("");
+        return '<div class="p-4 space-y-2.5">'
+          + '<div class="flex items-start justify-between gap-3">'
+          + '<div class="flex items-center gap-3 min-w-0">'
+          + '<span class="material-symbols-outlined text-lg ' + style.tone + ' rounded-lg p-1.5 shrink-0">' + style.icon + "</span>"
+          + '<div class="min-w-0"><p class="text-xs font-bold text-slate-900 truncate">' + escapeHtml(r.display) + "</p>"
+          + '<p class="text-[11px] text-slate-500 truncate">' + escapeHtml(r.hiType) + " · " + fmtDate(r.date)
+          + " · " + escapeHtml(r.hipName || r.hipId || "—") + "</p>"
+          + '<p class="text-[10px] font-mono text-slate-400 truncate">' + escapeHtml(r.careContextRef) + "</p></div></div>"
+          + '<button onclick="openClaimRecord(\'' + jsId(r.__id) + '\')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors shrink-0">View FHIR</button>'
+          + "</div>"
+          + (chips ? '<div class="flex flex-wrap gap-1.5 pl-11">' + chips + "</div>" : "")
+          + "</div>";
+      }).join("");
+
+      toast("Read " + items.length + " record(s). Logged to the policyholder's ledger.", "success");
+    }).catch(function (err) {
+      hideLoading();
+      const reason = isConsentLive(c)
+        ? err.message
+        : (c.status === "REVOKED" ? "The policyholder revoked this grant."
+          : c.status === "REQUESTED" ? "The policyholder has not signed this request yet."
+          : c.status === "DENIED" ? "The policyholder declined this request."
+          : "The grant has expired.");
+      body.innerHTML = '<div class="p-6 space-y-2 text-center">'
+        + '<span class="material-symbols-outlined text-3xl text-red-500">gpp_bad</span>'
+        + '<p class="text-xs font-bold text-red-700">Access denied by the consent manager</p>'
+        + '<p class="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">' + escapeHtml(reason)
+        + " The refusal came from the database security rules, so holding the policy number changes nothing.</p></div>";
+
+      writeAccessLog(c.abhaKey, {
+        consentId: cid, action: "FETCH_DENIED", hipId: c.insurerId || c.hipId, actorLabel: c.hipName,
+        purposeCode: c.purposeCode, recordCount: 0,
+        detail: "Insurer denied: " + reason.slice(0, 200)
+      });
+      toast("Fetch denied — the grant is not live.", "error");
+    });
+  }
+
+  function openClaimRecord(ccId) {
+    openFetchedRecord(ccId, "claim");
+  }
+
+  function closeClaimPanel() {
+    document.getElementById("claim-fetch-panel").classList.add("hidden");
+    state.claimFetched = [];
   }
 
   /* ---------- 8. ABDM_GATEWAY — the hospital-facing API ----------
@@ -4617,13 +5886,17 @@
     catch (e) {
       statusPill.className = "px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-red-100 text-red-700";
       statusPill.innerText = "400";
-      out.innerText = JSON.stringify({ error: { code: "MALFORMED_JSON", message: e.message } }, null, 2);
+      const malformed = { error: { code: "MALFORMED_JSON", message: e.message } };
+      out.innerText = JSON.stringify(malformed, null, 2);
+      renderApiResponseGui(renderFhirGui(malformed));
       return;
     }
 
     statusPill.className = "px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-100 text-slate-500";
     statusPill.innerText = "…";
     out.innerText = "// Executing " + ep.method + " " + ep.path + " …";
+    renderApiResponseGui('<p class="text-center text-xs text-slate-400 py-6">Executing '
+      + escapeHtml(ep.method + " " + ep.path) + " …</p>");
 
     const headers = {
       apiKey: (document.getElementById("api-key-input").value || "").trim(),
@@ -4637,6 +5910,7 @@
       statusPill.innerText = res.status + " · " + (res.latencyMs || 0) + "ms";
       state.lastApiResponse = JSON.stringify(res.body, null, 2);
       out.innerText = state.lastApiResponse;
+      renderApiResponseGui(renderFhirGui(res.body));
       pushActivity("api", ep.method + " " + ep.path + " → " + res.status, ok ? "emerald" : "red");
       if (!ok && res.status === 403) toast("403 — that is the consent manager working, not a bug.", "warn");
     });
@@ -4644,6 +5918,25 @@
 
   function copyApiResponse() {
     copyText(state.lastApiResponse || "", "Response copied to clipboard.");
+  }
+
+  function renderApiResponseGui(html) {
+    const host = document.getElementById("api-response-gui");
+    if (host) host.innerHTML = html;
+  }
+
+  function switchApiResponseView(mode) {
+    state.apiResponseView = mode === "json" ? "json" : "gui";
+    const visual = state.apiResponseView === "gui";
+    const gui = document.getElementById("api-response-gui");
+    const json = document.getElementById("api-response-output");
+    if (!gui || !json) return;
+    gui.classList.toggle("hidden", !visual);
+    json.classList.toggle("hidden", visual);
+    const on = "px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-900 text-white transition-colors";
+    const off = "px-2.5 py-0.5 rounded-md text-[11px] font-bold text-slate-600 hover:bg-slate-200 transition-colors";
+    document.getElementById("api-tab-gui").className = visual ? on : off;
+    document.getElementById("api-tab-json").className = visual ? off : on;
   }
 
   function switchSnippet(lang) {
@@ -4822,21 +6115,35 @@
           name: "NAMASTEtoICD11TM2",
           status: "active",
           sourceUri: CODE_SYSTEMS.namaste,
-          targetUri: CODE_SYSTEMS.icd11tm2,
-          group: [{
-            source: CODE_SYSTEMS.namaste,
-            target: CODE_SYSTEMS.icd11tm2,
-            element: [{
-              code: c.namasteCode,
-              display: c.termEnglish,
-              target: [
-                { code: c.icd11Tm2Code, display: c.termEnglish + " (TM2)", equivalence: c.confidence >= 95 ? "equivalent" : "wider",
-                  comment: "Confidence " + c.confidence + "%. Curated by the AYUSH terminology committee." },
-                { code: c.icd11MmsCode, display: c.termEnglish + " (biomedicine)", equivalence: "relatedto",
-                  comment: "Biomedical counterpart for insurance and analytics." }
-              ]
-            }]
-          }]
+          // One group per target system: ConceptMap.group.target is a single uri,
+          // so the TM2 and MMS mappings cannot share a group without the MMS
+          // code inheriting the TM2 system and being read as a TM2 code.
+          group: [
+            {
+              source: CODE_SYSTEMS.namaste,
+              target: CODE_SYSTEMS.icd11tm2,
+              element: [{
+                code: c.namasteCode,
+                display: c.termEnglish,
+                target: [
+                  { code: c.icd11Tm2Code, display: c.termEnglish + " (TM2)", equivalence: c.confidence >= 95 ? "equivalent" : "wider",
+                    comment: "Confidence " + c.confidence + "%. Curated by the AYUSH terminology committee." }
+                ]
+              }]
+            },
+            {
+              source: CODE_SYSTEMS.namaste,
+              target: CODE_SYSTEMS.icd11mms,
+              element: [{
+                code: c.namasteCode,
+                display: c.termEnglish,
+                target: [
+                  { code: c.icd11MmsCode, display: c.termEnglish + " (biomedicine)", equivalence: "relatedto",
+                    comment: "Biomedical counterpart for insurance and analytics." }
+                ]
+              }]
+            }
+          ]
         }
       };
     }
@@ -4978,8 +6285,26 @@
   function renderExplorer() {
     const built = buildExplorerResource(state.explorerKey || "condition");
     document.getElementById("explorer-title").innerText = built.resource.resourceType;
+    // Both panes are filled from the same object: the visual reading and the
+    // wire format can never drift apart, and Validate still parses the JSON.
     document.getElementById("explorer-output").innerText = JSON.stringify(built.resource, null, 2);
+    document.getElementById("explorer-gui").innerHTML = renderFhirGui(built.resource);
     document.getElementById("explorer-validation").classList.add("hidden");
+    switchExplorerView(state.explorerView || "gui");
+  }
+
+  function switchExplorerView(mode) {
+    state.explorerView = mode === "json" ? "json" : "gui";
+    const visual = state.explorerView === "gui";
+    const gui = document.getElementById("explorer-gui");
+    const json = document.getElementById("explorer-output");
+    if (!gui || !json) return;
+    gui.classList.toggle("hidden", !visual);
+    json.classList.toggle("hidden", visual);
+    const on = "px-3 py-1 rounded-md text-xs font-bold bg-slate-900 text-white transition-colors";
+    const off = "px-3 py-1 rounded-md text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors";
+    document.getElementById("explorer-tab-gui").className = visual ? on : off;
+    document.getElementById("explorer-tab-json").className = visual ? off : on;
   }
 
   function validateExplorerJson() {
@@ -5016,6 +6341,680 @@
 
   function copyExplorerJson() {
     copyText(document.getElementById("explorer-output").innerText, "Resource copied to clipboard.");
+  }
+
+  /* ---------- 9b. FHIR HUMAN-READABLE RENDERER ----------
+     Until now every FHIR surface in this page ended at a <pre> of JSON, which
+     only a developer can read. The functions below turn any resource — or a
+     whole Bundle — into a card view a clinician, a claims assessor or a judge
+     can follow, and are shared by the Resource Explorer, both record viewers,
+     the insurer's claim viewer and the API console.
+
+     The JSON is never replaced, only given a sibling tab. The wire format is
+     the contract; the GUI is a reading of it, rendered from the same object.
+
+     Everything here escapes before it concatenates. Bundles arrive from other
+     parties through disclosures, so a resource is untrusted input: narrative
+     `text.div` is XHTML by spec and is stripped to plain text rather than
+     injected.                                                               */
+
+  const FHIR_SYSTEM_META = {
+    "https://ayush.gov.in/fhir/CodeSystem/namaste":     { label: "NAMASTE",      tone: "bg-teal-50 text-teal-800 border-teal-200" },
+    "http://id.who.int/icd/release/11/mms/tm2":         { label: "ICD-11 TM2",   tone: "bg-indigo-50 text-indigo-800 border-indigo-200" },
+    "http://id.who.int/icd/release/11/mms":             { label: "ICD-11 MMS",   tone: "bg-amber-50 text-amber-900 border-amber-200" },
+    "http://snomed.info/sct":                           { label: "SNOMED CT",    tone: "bg-purple-50 text-purple-800 border-purple-200" },
+    "https://healthid.abdm.gov.in/abha-address":        { label: "ABHA address", tone: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+    "https://healthid.abdm.gov.in/abha-number":         { label: "ABHA number",  tone: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+    "https://healthid.abdm.gov.in":                     { label: "ABHA",         tone: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+    "https://facility.abdm.gov.in":                     { label: "HFR facility", tone: "bg-blue-50 text-blue-800 border-blue-200" },
+    "http://terminology.hl7.org/CodeSystem/consentscope":        { label: "Consent scope",  tone: "bg-slate-100 text-slate-700 border-slate-200" },
+    "http://terminology.hl7.org/CodeSystem/condition-clinical":  { label: "Clinical status", tone: "bg-slate-100 text-slate-700 border-slate-200" },
+    "http://terminology.hl7.org/CodeSystem/condition-ver-status":{ label: "Verification",   tone: "bg-slate-100 text-slate-700 border-slate-200" },
+    "http://terminology.hl7.org/CodeSystem/condition-category":  { label: "Category",       tone: "bg-slate-100 text-slate-700 border-slate-200" },
+    "http://terminology.hl7.org/CodeSystem/v3-ActReason":        { label: "Purpose of use", tone: "bg-amber-50 text-amber-900 border-amber-200" },
+    "https://ayurfhir.example/hi-type":                 { label: "HI type",      tone: "bg-teal-50 text-teal-800 border-teal-200" }
+  };
+
+  // Longest first, so ".../mms/tm2" is never swallowed by the ".../mms" prefix.
+  const FHIR_SYSTEM_KEYS = Object.keys(FHIR_SYSTEM_META).sort(function (a, b) { return b.length - a.length; });
+
+  function fhirSystemMeta(system) {
+    const s = String(system || "");
+    if (FHIR_SYSTEM_META[s]) return FHIR_SYSTEM_META[s];
+    for (let i = 0; i < FHIR_SYSTEM_KEYS.length; i++) {
+      if (s.indexOf(FHIR_SYSTEM_KEYS[i]) === 0) return FHIR_SYSTEM_META[FHIR_SYSTEM_KEYS[i]];
+    }
+    const tail = s.split("/").filter(Boolean).pop();
+    return { label: tail || "code", tone: "bg-slate-100 text-slate-700 border-slate-200" };
+  }
+
+  const FHIR_RESOURCE_META = {
+    Bundle:              { icon: "inventory_2",       tone: "bg-slate-200 text-slate-700",   blurb: "A signed envelope of resources that travel together." },
+    Composition:         { icon: "article",           tone: "bg-teal-100 text-teal-700",     blurb: "The human-readable document this bundle represents." },
+    Patient:             { icon: "person",            tone: "bg-emerald-100 text-emerald-700", blurb: "Who the record is about." },
+    Organization:        { icon: "domain",            tone: "bg-blue-100 text-blue-700",     blurb: "The facility that authored the record." },
+    Condition:           { icon: "clinical_notes",    tone: "bg-rose-100 text-rose-700",     blurb: "The diagnosis, carrying every coding system at once." },
+    MedicationRequest:   { icon: "medication",        tone: "bg-indigo-100 text-indigo-700", blurb: "What was prescribed." },
+    DiagnosticReport:    { icon: "biotech",           tone: "bg-purple-100 text-purple-700", blurb: "An investigation and its conclusion." },
+    Observation:         { icon: "monitor_heart",     tone: "bg-lime-100 text-lime-700",     blurb: "A single measured or reported value." },
+    Consent:             { icon: "how_to_reg",        tone: "bg-amber-100 text-amber-700",   blurb: "The permission slip: who, what, why, until when." },
+    Provenance:          { icon: "history",           tone: "bg-slate-200 text-slate-700",   blurb: "Who touched the data, and when." },
+    ConceptMap:          { icon: "swap_horiz",        tone: "bg-teal-100 text-teal-700",     blurb: "The translation table between two code systems." },
+    ValueSet:            { icon: "list_alt",          tone: "bg-teal-100 text-teal-700",     blurb: "The set of codes an EMR may pick from." },
+    CapabilityStatement: { icon: "settings_ethernet", tone: "bg-slate-200 text-slate-700",   blurb: "What this server supports." },
+    Parameters:          { icon: "tune",              tone: "bg-slate-200 text-slate-700",   blurb: "The in/out payload of a FHIR operation." },
+    OperationOutcome:    { icon: "error",             tone: "bg-red-100 text-red-700",       blurb: "The server's structured explanation of a problem." }
+  };
+
+  function fhirResourceMeta(type) {
+    return FHIR_RESOURCE_META[type] || { icon: "data_object", tone: "bg-slate-100 text-slate-600", blurb: "" };
+  }
+
+  /* ----- small building blocks ----- */
+
+  function fhirChip(label, value, tone, title) {
+    return '<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-semibold '
+      + (tone || "bg-slate-100 text-slate-700 border-slate-200") + '"'
+      + (title ? ' title="' + escapeHtml(title) + '"' : "") + '>'
+      + '<span class="uppercase tracking-wide opacity-70">' + escapeHtml(label) + "</span>"
+      + (value ? '<span class="font-mono font-bold">' + escapeHtml(value) + "</span>" : "")
+      + "</span>";
+  }
+
+  function fhirCodingChip(coding) {
+    const meta = fhirSystemMeta(coding.system);
+    return '<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] '
+      + meta.tone + '" title="' + escapeHtml(coding.system || "") + '">'
+      + '<span class="uppercase tracking-wide font-bold opacity-70">' + escapeHtml(meta.label) + "</span>"
+      + '<span class="font-mono font-bold">' + escapeHtml(coding.code || "—") + "</span>"
+      + (coding.display ? '<span class="opacity-80">' + escapeHtml(coding.display) + "</span>" : "")
+      + (coding.userSelected ? '<span class="material-symbols-outlined text-[13px]" title="Chosen by the clinician">star</span>' : "")
+      + "</span>";
+  }
+
+  function fhirCodeableBlock(cc, label) {
+    if (!cc || typeof cc !== "object") return "";
+    const codings = Array.isArray(cc.coding) ? cc.coding : [];
+    if (!codings.length && !cc.text) return "";
+    return '<div class="space-y-1.5">'
+      + (label ? '<p class="text-[10px] uppercase font-bold text-slate-400">' + escapeHtml(label) + "</p>" : "")
+      + (cc.text ? '<p class="text-sm font-bold text-slate-900 leading-snug">' + escapeHtml(cc.text) + "</p>" : "")
+      + (codings.length ? '<div class="flex flex-wrap gap-1.5">' + codings.map(fhirCodingChip).join("") + "</div>" : "")
+      + (codings.length > 1
+        ? '<p class="text-[10px] text-slate-400">One concept, ' + codings.length + " code systems — nothing was translated away.</p>"
+        : "")
+      + "</div>";
+  }
+
+  // The single coding buried inside status-style CodeableConcepts.
+  function fhirStatusText(cc) {
+    if (!cc) return "";
+    if (typeof cc === "string") return cc;
+    if (cc.text) return cc.text;
+    const c = Array.isArray(cc.coding) ? cc.coding[0] : null;
+    return c ? (c.display || c.code || "") : "";
+  }
+
+  function fhirValueText(v) {
+    if (v === null || v === undefined) return "";
+    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return String(v);
+    if (Array.isArray(v)) return v.map(fhirValueText).filter(Boolean).join(", ");
+    if (v.coding && Array.isArray(v.coding) && v.coding.length) {
+      return (v.text ? v.text + " · " : "") + v.coding.map(function (c) {
+        return (c.code || "") + (c.display ? " (" + c.display + ")" : "");
+      }).join(" · ");
+    }
+    if (v.text) return String(v.text);
+    if (v.display) return String(v.display);
+    if (v.reference) return String(v.reference);
+    if (v.value !== undefined) return String(v.value) + (v.unit ? " " + v.unit : "");
+    if (v.start || v.end) return (v.start || "—") + " → " + (v.end || "—");
+    if (v.system && v.code) return String(v.code);
+    return JSON.stringify(v);
+  }
+
+  function fhirRefText(ref) {
+    if (!ref) return "";
+    if (typeof ref === "string") return ref;
+    if (ref.display && ref.reference) return ref.display + " (" + ref.reference + ")";
+    return ref.display || ref.reference || "";
+  }
+
+  function fhirKvGrid(rows) {
+    const shown = (rows || []).filter(function (r) { return r && r[1] !== undefined && r[1] !== null && r[1] !== ""; });
+    if (!shown.length) return "";
+    return '<div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">' + shown.map(function (r) {
+      return '<div class="p-2 bg-slate-50 rounded-lg min-w-0">'
+        + '<p class="text-[10px] uppercase font-bold text-slate-400">' + escapeHtml(r[0]) + "</p>"
+        + '<p class="text-[11px] font-semibold text-slate-800 break-words">' + escapeHtml(r[1]) + "</p></div>";
+    }).join("") + "</div>";
+  }
+
+  function fhirNote(label, text) {
+    if (!text) return "";
+    return '<div class="p-3 bg-slate-50 border border-slate-100 rounded-lg">'
+      + '<p class="text-[10px] uppercase font-bold text-slate-400 mb-0.5">' + escapeHtml(label) + "</p>"
+      + '<p class="text-[11px] text-slate-700 leading-relaxed">' + escapeHtml(text) + "</p></div>";
+  }
+
+  // FHIR narrative is XHTML. It is rendered as text, never as markup.
+  function fhirNarrativeText(res) {
+    if (!res || !res.text || !res.text.div) return "";
+    return String(res.text.div).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function fhirNotesText(res) {
+    if (!res || !Array.isArray(res.note)) return "";
+    return res.note.map(function (n) { return n && n.text ? n.text : ""; }).filter(Boolean).join(" ");
+  }
+
+  /* ----- per-resource bodies ----- */
+
+  function fhirBodyCondition(r) {
+    return fhirCodeableBlock(r.code, "Diagnosis")
+      + fhirKvGrid([
+        ["Clinical status", fhirStatusText(r.clinicalStatus)],
+        ["Verification", fhirStatusText(r.verificationStatus)],
+        ["Category", fhirStatusText(Array.isArray(r.category) ? r.category[0] : r.category)],
+        ["Subject", fhirRefText(r.subject)],
+        ["Recorded", r.recordedDate ? fmtDateTime(r.recordedDate) : ""],
+        ["Onset", r.onsetDateTime ? fmtDateTime(r.onsetDateTime) : ""]
+      ])
+      + fhirNote("Clinical note", fhirNotesText(r));
+  }
+
+  function fhirBodyPatient(r) {
+    const ids = Array.isArray(r.identifier) ? r.identifier : [];
+    const name = Array.isArray(r.name) && r.name[0]
+      ? (r.name[0].text || [(r.name[0].given || []).join(" "), r.name[0].family].filter(Boolean).join(" "))
+      : "";
+    const phone = Array.isArray(r.telecom)
+      ? (r.telecom.filter(function (t) { return t.system === "phone"; })[0] || {}).value : "";
+    return (name ? '<p class="text-sm font-bold text-slate-900">' + escapeHtml(name) + "</p>" : "")
+      + (ids.length ? '<div class="flex flex-wrap gap-1.5">' + ids.map(function (i) {
+        const meta = fhirSystemMeta(i.system);
+        return fhirChip(meta.label, i.value, meta.tone, i.system);
+      }).join("") + "</div>" : "")
+      + fhirKvGrid([
+        ["Gender", r.gender],
+        ["Date of birth", r.birthDate],
+        ["Mobile", phone],
+        ["Active", r.active === undefined ? "" : String(r.active)]
+      ]);
+  }
+
+  function fhirBodyOrganization(r) {
+    const ids = Array.isArray(r.identifier) ? r.identifier : [];
+    return '<p class="text-sm font-bold text-slate-900">' + escapeHtml(r.name || "—") + "</p>"
+      + (ids.length ? '<div class="flex flex-wrap gap-1.5">' + ids.map(function (i) {
+        const meta = fhirSystemMeta(i.system);
+        return fhirChip(meta.label, i.value, meta.tone, i.system);
+      }).join("") + "</div>" : "")
+      + fhirKvGrid([["Type", fhirValueText(r.type)]]);
+  }
+
+  function fhirBodyComposition(r) {
+    const sections = Array.isArray(r.section) ? r.section : [];
+    return '<p class="text-sm font-bold text-slate-900">' + escapeHtml(r.title || "Clinical document") + "</p>"
+      + fhirKvGrid([
+        ["Status", r.status],
+        ["Type", fhirValueText(r.type)],
+        ["Date", r.date ? fmtDateTime(r.date) : ""],
+        ["Author", fhirRefText(Array.isArray(r.author) ? r.author[0] : r.author)],
+        ["Subject", fhirRefText(r.subject)]
+      ])
+      + sections.map(function (s) {
+        return fhirNote(s.title || "Section", fhirNarrativeText(s));
+      }).join("");
+  }
+
+  function fhirBodyMedicationRequest(r) {
+    return fhirCodeableBlock(r.medicationCodeableConcept, "Medication")
+      + fhirKvGrid([
+        ["Status", r.status],
+        ["Intent", r.intent],
+        ["Authored on", r.authoredOn ? fmtDateTime(r.authoredOn) : ""],
+        ["Requester", fhirRefText(r.requester)],
+        ["Reason", fhirRefText(Array.isArray(r.reasonReference) ? r.reasonReference[0] : r.reasonReference)]
+      ]);
+  }
+
+  function fhirBodyDiagnosticReport(r) {
+    return fhirCodeableBlock(r.code, "Investigation")
+      + fhirKvGrid([
+        ["Status", r.status],
+        ["Effective", r.effectiveDateTime ? fmtDateTime(r.effectiveDateTime) : ""],
+        ["Performer", fhirRefText(Array.isArray(r.performer) ? r.performer[0] : r.performer)]
+      ])
+      + fhirNote("Conclusion", r.conclusion);
+  }
+
+  function fhirBodyObservation(r) {
+    const selfReported = (Array.isArray(r.extension) ? r.extension : []).filter(function (e) {
+      return String(e.url || "").indexOf("self-reported") !== -1 && e.valueBoolean;
+    }).length > 0;
+    return fhirCodeableBlock(r.code, "Observation")
+      + fhirKvGrid([
+        ["Status", r.status],
+        ["Value", fhirValueText(r.valueString !== undefined ? r.valueString : r.valueQuantity)],
+        ["Effective", r.effectiveDateTime ? fmtDateTime(r.effectiveDateTime) : ""],
+        ["Category", fhirValueText(Array.isArray(r.category) ? r.category[0] : r.category)],
+        ["Source", selfReported ? "Self-reported by the patient" : ""]
+      ]);
+  }
+
+  function fhirBodyConsent(r) {
+    const p = r.provision || {};
+    const classes = Array.isArray(p.class) ? p.class : [];
+    const purposes = Array.isArray(p.purpose) ? p.purpose : [];
+    const exts = Array.isArray(r.extension) ? r.extension : [];
+    const permit = String(p.type || "").toLowerCase() === "permit";
+    return '<div class="flex flex-wrap items-center gap-1.5">'
+      + fhirChip("Status", r.status, r.status === "active" ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-slate-100 text-slate-700 border-slate-200")
+      + fhirChip("Provision", p.type || "—", permit ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-red-50 text-red-800 border-red-200")
+      + purposes.map(function (c) { return fhirCodingChip(c); }).join("")
+      + "</div>"
+      + fhirKvGrid([
+        ["Patient", fhirRefText(r.patient)],
+        ["Granted to", fhirValueText(Array.isArray(r.organization) ? r.organization[0] : r.organization)],
+        ["Signed at", r.dateTime ? fmtDateTime(r.dateTime) : ""],
+        ["Records from", p.period && p.period.start ? fmtDateTime(p.period.start) : ""],
+        ["Records to", p.period && p.period.end ? fmtDateTime(p.period.end) : ""],
+        ["Disclosed", fhirValueText(Array.isArray(p.data) && p.data[0] ? p.data[0].reference : "")]
+      ])
+      + (classes.length
+        ? '<div><p class="text-[10px] uppercase font-bold text-slate-400 mb-1">Health information types covered</p>'
+          + '<div class="flex flex-wrap gap-1.5">' + classes.map(fhirCodingChip).join("") + "</div></div>"
+        : "")
+      + (exts.length
+        ? fhirKvGrid(exts.map(function (e) {
+          const tail = String(e.url || "").split("/").pop();
+          const v = e.valueString || e.valueInstant || e.valueCode || fhirValueText(e.valueBoolean);
+          return [tail, v && String(v).indexOf("T") !== -1 && e.valueInstant ? fmtDateTime(v) : v];
+        }))
+        : "");
+  }
+
+  function fhirBodyProvenance(r) {
+    const agents = Array.isArray(r.agent) ? r.agent : [];
+    return fhirKvGrid([
+      ["Recorded", r.recorded ? fmtDateTime(r.recorded) : ""],
+      ["Activity", fhirValueText(r.activity)],
+      ["Target", fhirValueText(Array.isArray(r.target) ? r.target[0] : r.target)],
+      ["Reason", fhirValueText(Array.isArray(r.reason) ? r.reason[0] : r.reason)]
+    ])
+      + (agents.length
+        ? '<div><p class="text-[10px] uppercase font-bold text-slate-400 mb-1">Agents</p>'
+          + '<div class="space-y-1">' + agents.map(function (a) {
+            return '<p class="text-[11px] text-slate-700"><span class="font-semibold">' + escapeHtml(fhirValueText(a.who)) + "</span>"
+              + (a.type ? ' <span class="text-slate-400">· ' + escapeHtml(fhirValueText(a.type)) + "</span>" : "") + "</p>";
+          }).join("") + "</div></div>"
+        : "");
+  }
+
+  const FHIR_EQUIVALENCE_TONE = {
+    equivalent: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    equal: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    wider: "bg-amber-50 text-amber-900 border-amber-200",
+    narrower: "bg-amber-50 text-amber-900 border-amber-200",
+    relatedto: "bg-slate-100 text-slate-700 border-slate-200",
+    "related-to": "bg-slate-100 text-slate-700 border-slate-200",
+    unmatched: "bg-red-50 text-red-800 border-red-200"
+  };
+
+  function fhirEquivalenceTone(eq) {
+    return FHIR_EQUIVALENCE_TONE[String(eq || "").toLowerCase()] || "bg-slate-100 text-slate-700 border-slate-200";
+  }
+
+  function fhirBodyConceptMap(r) {
+    const groups = Array.isArray(r.group) ? r.group : [];
+    // ConceptMap.targetUri is optional and cannot name more than one system, so
+    // the groups are the honest answer whenever a map has several targets.
+    const targetLabels = [];
+    groups.forEach(function (g) {
+      const label = g.target ? fhirSystemMeta(g.target).label : "";
+      if (label && targetLabels.indexOf(label) === -1) targetLabels.push(label);
+    });
+    return fhirKvGrid([
+      ["Name", r.name], ["Version", r.version], ["Status", r.status],
+      ["Source system", r.sourceUri ? fhirSystemMeta(r.sourceUri).label : ""],
+      [targetLabels.length > 1 ? "Target systems" : "Target system",
+        targetLabels.length ? targetLabels.join(" · ") : (r.targetUri ? fhirSystemMeta(r.targetUri).label : "")]
+    ])
+      + groups.map(function (g) {
+        const elements = Array.isArray(g.element) ? g.element : [];
+        return elements.map(function (el) {
+          const targets = Array.isArray(el.target) ? el.target : [];
+          return '<div class="p-3 border border-slate-200 rounded-xl space-y-2">'
+            + '<div class="flex flex-wrap items-center gap-2">'
+            + fhirCodingChip({ system: g.source, code: el.code, display: el.display })
+            + '<span class="material-symbols-outlined text-slate-400 text-base">arrow_forward</span>'
+            + "</div>"
+            + '<div class="space-y-1.5 pl-1 border-l-2 border-slate-100">' + targets.map(function (t) {
+              return '<div class="pl-3 space-y-1">'
+                + '<div class="flex flex-wrap items-center gap-1.5">'
+                + fhirCodingChip({ system: g.target, code: t.code, display: t.display })
+                + fhirChip("equivalence", t.equivalence || "—", fhirEquivalenceTone(t.equivalence))
+                + "</div>"
+                + (t.comment ? '<p class="text-[10px] text-slate-500 leading-relaxed">' + escapeHtml(t.comment) + "</p>" : "")
+                + "</div>";
+            }).join("") + "</div></div>";
+        }).join("");
+      }).join("");
+  }
+
+  function fhirBodyValueSet(r) {
+    const exp = r.expansion || {};
+    const items = Array.isArray(exp.contains) ? exp.contains : [];
+    if (!items.length) {
+      return fhirKvGrid([["Status", r.status], ["Total", String(exp.total === undefined ? 0 : exp.total)]])
+        + '<p class="text-[11px] text-slate-500">The expansion returned no concepts for this filter.</p>';
+    }
+    return fhirKvGrid([
+      ["Status", r.status],
+      ["Concepts", String(exp.total === undefined ? items.length : exp.total)],
+      ["Expanded at", exp.timestamp ? fmtDateTime(exp.timestamp) : ""]
+    ])
+      + '<div class="space-y-2">' + items.map(function (c) {
+        const designations = Array.isArray(c.designation) ? c.designation : [];
+        const exts = Array.isArray(c.extension) ? c.extension : [];
+        const sanskrit = (designations.filter(function (d) { return d.use && d.use.code === "sanskrit"; })[0] || {}).value;
+        const definition = (designations.filter(function (d) { return d.use && d.use.code === "definition"; })[0] || {}).value;
+        // The extension url is the full system uri ("http://id.who.int/icd/..."),
+        // so this is a contains test, not a prefix test.
+        const crossCodes = exts.filter(function (e) {
+          return String(e.url || "").indexOf("id.who.int") !== -1 && e.valueString && e.valueString !== "UNMAPPED";
+        });
+        const confidence = (exts.filter(function (e) { return String(e.url || "").indexOf("confidence") !== -1; })[0] || {}).valueDecimal;
+        return '<div class="p-3 border border-slate-200 rounded-xl space-y-2">'
+          + '<div class="flex flex-wrap items-baseline gap-2">'
+          + '<p class="text-sm font-bold text-slate-900">' + escapeHtml(c.display || c.code) + "</p>"
+          + (sanskrit ? '<p class="text-xs text-slate-500">' + escapeHtml(sanskrit) + "</p>" : "")
+          + "</div>"
+          + '<div class="flex flex-wrap gap-1.5">'
+          + fhirCodingChip({ system: c.system, code: c.code })
+          + crossCodes.map(function (e) { return fhirCodingChip({ system: e.url, code: e.valueString }); }).join("")
+          + (confidence !== undefined ? fhirChip("confidence", Math.round(confidence) + "%", "bg-slate-100 text-slate-700 border-slate-200") : "")
+          + "</div>"
+          + (definition ? '<p class="text-[11px] text-slate-600 leading-relaxed">' + escapeHtml(definition) + "</p>" : "")
+          + "</div>";
+      }).join("") + "</div>";
+  }
+
+  function fhirBodyCapabilityStatement(r) {
+    const rest = Array.isArray(r.rest) ? r.rest[0] || {} : {};
+    const resources = Array.isArray(rest.resource) ? rest.resource : [];
+    return fhirKvGrid([
+      ["FHIR version", r.fhirVersion], ["Status", r.status], ["Kind", r.kind],
+      ["Formats", (r.format || []).join(", ")],
+      ["Implementation", r.implementation ? r.implementation.description : ""],
+      ["Security", rest.security && rest.security.service ? fhirValueText(rest.security.service[0]) : ""]
+    ])
+      + (resources.length
+        ? '<div class="space-y-1.5">' + resources.map(function (res) {
+          const interactions = (res.interaction || []).map(function (i) { return i.code; }).join(", ");
+          const ops = (res.operation || []).map(function (o) { return "$" + o.name; }).join(", ");
+          return '<div class="p-2.5 bg-slate-50 rounded-lg">'
+            + '<p class="text-[11px] font-bold font-mono text-slate-900">' + escapeHtml(res.type) + "</p>"
+            + '<p class="text-[10px] text-slate-500">' + escapeHtml([interactions, ops].filter(Boolean).join(" · ") || "—") + "</p>"
+            + (res.documentation ? '<p class="text-[10px] text-slate-500 mt-0.5">' + escapeHtml(res.documentation) + "</p>" : "")
+            + "</div>";
+        }).join("") + "</div>"
+        : "");
+  }
+
+  // $translate and friends: a flat parameter list, but "match" parts carry the
+  // whole point of the operation, so they get the chip treatment.
+  function fhirBodyParameters(r) {
+    const params = Array.isArray(r.parameter) ? r.parameter : [];
+    const simple = [];
+    let html = "";
+    params.forEach(function (p) {
+      if (Array.isArray(p.part)) {
+        const parts = {};
+        p.part.forEach(function (q) { parts[q.name] = q; });
+        const concept = parts.concept ? parts.concept.valueCoding : null;
+        const eq = parts.equivalence ? parts.equivalence.valueCode : "";
+        const conf = parts.confidence ? parts.confidence.valueDecimal : undefined;
+        html += '<div class="p-3 border border-slate-200 rounded-xl space-y-2">'
+          + '<div class="flex flex-wrap items-center gap-1.5">'
+          + (concept ? fhirCodingChip(concept) : fhirChip(p.name, "", "bg-slate-100 text-slate-700 border-slate-200"))
+          + (eq ? fhirChip("equivalence", eq, fhirEquivalenceTone(eq)) : "")
+          + "</div>"
+          + (conf !== undefined
+            ? '<div class="space-y-1"><div class="flex items-center justify-between text-[10px] text-slate-500">'
+              + "<span>Mapping confidence</span><span class=\"font-mono font-bold\">" + Math.round(conf * 100) + "%</span></div>"
+              + '<div class="h-1.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-teal-500" style="width:'
+              + Math.max(0, Math.min(100, Math.round(conf * 100))) + '%"></div></div></div>'
+            : "")
+          + "</div>";
+      } else {
+        const value = ["valueBoolean", "valueString", "valueCode", "valueUri", "valueDecimal", "valueInteger"].reduce(function (acc, k) {
+          return acc !== undefined ? acc : p[k];
+        }, undefined);
+        simple.push([p.name, value === undefined ? "" : String(value)]);
+      }
+    });
+    const result = params.filter(function (p) { return p.name === "result"; })[0];
+    const banner = result
+      ? '<div class="flex items-center gap-2 p-2.5 rounded-lg ' + (result.valueBoolean ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900") + '">'
+        + '<span class="material-symbols-outlined text-base">' + (result.valueBoolean ? "check_circle" : "help") + "</span>"
+        + '<span class="text-[11px] font-bold">' + (result.valueBoolean ? "A mapping was found." : "No reliable mapping — routed to the curation queue.") + "</span></div>"
+      : "";
+    return banner + fhirKvGrid(simple) + html;
+  }
+
+  function fhirBodyOperationOutcome(r) {
+    const issues = Array.isArray(r.issue) ? r.issue : [];
+    return '<div class="space-y-1.5">' + issues.map(function (i) {
+      const fatal = i.severity === "fatal" || i.severity === "error";
+      return '<div class="p-2.5 rounded-lg ' + (fatal ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-900") + '">'
+        + '<p class="text-[10px] uppercase font-bold">' + escapeHtml(i.severity || "issue") + " · " + escapeHtml(i.code || "") + "</p>"
+        + '<p class="text-[11px] leading-relaxed">' + escapeHtml(i.diagnostics || "") + "</p></div>";
+    }).join("") + "</div>";
+  }
+
+  const FHIR_BODIES = {
+    Condition: fhirBodyCondition,
+    Patient: fhirBodyPatient,
+    Organization: fhirBodyOrganization,
+    Composition: fhirBodyComposition,
+    MedicationRequest: fhirBodyMedicationRequest,
+    DiagnosticReport: fhirBodyDiagnosticReport,
+    Observation: fhirBodyObservation,
+    Consent: fhirBodyConsent,
+    Provenance: fhirBodyProvenance,
+    ConceptMap: fhirBodyConceptMap,
+    ValueSet: fhirBodyValueSet,
+    CapabilityStatement: fhirBodyCapabilityStatement,
+    Parameters: fhirBodyParameters,
+    OperationOutcome: fhirBodyOperationOutcome
+  };
+
+  // Anything without a hand-written body still has to be readable, so its
+  // scalar fields are listed and its nested objects summarised.
+  function fhirBodyGeneric(r) {
+    const skip = { resourceType: 1, id: 1, meta: 1, text: 1, _comment: 1 };
+    const rows = [];
+    Object.keys(r).forEach(function (k) {
+      if (skip[k]) return;
+      const text = fhirValueText(r[k]);
+      if (text) rows.push([k, text.length > 160 ? text.slice(0, 157) + "…" : text]);
+    });
+    return fhirKvGrid(rows);
+  }
+
+  function fhirMetaFooter(r) {
+    const meta = r.meta || {};
+    const tags = Array.isArray(meta.tag) ? meta.tag : [];
+    const profiles = Array.isArray(meta.profile) ? meta.profile : [];
+    if (!tags.length && !profiles.length && !meta.lastUpdated && !meta.versionId) return "";
+    return '<div class="pt-2 border-t border-slate-100 space-y-1.5">'
+      + (tags.length ? '<div class="flex flex-wrap gap-1.5">' + tags.map(function (t) {
+        return fhirChip(t.display || "release", t.code, "bg-slate-100 text-slate-600 border-slate-200", t.system);
+      }).join("") + "</div>" : "")
+      + (profiles.length ? '<p class="text-[10px] text-slate-400 break-all">Profile: ' + escapeHtml(profiles.join(", ")) + "</p>" : "")
+      + (meta.lastUpdated || meta.versionId
+        ? '<p class="text-[10px] text-slate-400">'
+          + (meta.versionId ? "v" + escapeHtml(meta.versionId) + " · " : "")
+          + (meta.lastUpdated ? "updated " + escapeHtml(fmtDateTime(meta.lastUpdated)) : "") + "</p>"
+        : "")
+      + "</div>";
+  }
+
+  function fhirResourceCard(r, opts) {
+    opts = opts || {};
+    const type = r.resourceType;
+    const meta = fhirResourceMeta(type);
+    const body = (FHIR_BODIES[type] || fhirBodyGeneric)(r);
+    const narrative = type === "Composition" ? "" : fhirNarrativeText(r);
+    return '<div class="border border-slate-200 rounded-xl overflow-hidden bg-white">'
+      + '<div class="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2">'
+      + '<span class="material-symbols-outlined text-base rounded-lg p-1 ' + meta.tone + '">' + meta.icon + "</span>"
+      + '<div class="min-w-0 flex-1">'
+      + '<p class="text-xs font-bold text-slate-900 font-mono">' + escapeHtml(type) + "</p>"
+      + (meta.blurb ? '<p class="text-[10px] text-slate-500 truncate">' + escapeHtml(meta.blurb) + "</p>" : "")
+      + "</div>"
+      + (r.id ? '<span class="text-[10px] font-mono text-slate-400 truncate max-w-[10rem]">' + escapeHtml(r.id) + "</span>" : "")
+      + (opts.responseStatus ? '<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">' + escapeHtml(opts.responseStatus) + "</span>" : "")
+      + "</div>"
+      + '<div class="p-3 space-y-2.5">'
+      + body
+      + fhirNote("Narrative", narrative)
+      + (r._comment ? '<p class="text-[10px] text-slate-500 leading-relaxed italic border-l-2 border-teal-200 pl-2">' + escapeHtml(r._comment) + "</p>" : "")
+      + fhirMetaFooter(r)
+      + "</div></div>";
+  }
+
+  function fhirBundleCard(b) {
+    const entries = Array.isArray(b.entry) ? b.entry : [];
+    const types = {};
+    entries.forEach(function (e) {
+      if (e && e.resource && e.resource.resourceType) types[e.resource.resourceType] = (types[e.resource.resourceType] || 0) + 1;
+    });
+    return '<div class="border-2 border-slate-200 rounded-xl overflow-hidden bg-white">'
+      + '<div class="px-3 py-2.5 bg-slate-900 text-white flex items-center gap-2">'
+      + '<span class="material-symbols-outlined text-base">inventory_2</span>'
+      + '<div class="min-w-0 flex-1">'
+      + '<p class="text-xs font-bold font-mono">Bundle · ' + escapeHtml(b.type || "collection") + "</p>"
+      + '<p class="text-[10px] text-slate-400 truncate">' + entries.length + " resource(s)"
+      + (b.timestamp ? " · " + escapeHtml(fmtDateTime(b.timestamp)) : "") + "</p>"
+      + "</div>"
+      + (b.id ? '<span class="text-[10px] font-mono text-slate-400 truncate max-w-[10rem]">' + escapeHtml(b.id) + "</span>" : "")
+      + "</div>"
+      + '<div class="p-3 space-y-2.5">'
+      + (Object.keys(types).length
+        ? '<div class="flex flex-wrap gap-1.5">' + Object.keys(types).map(function (t) {
+          return fhirChip(t, String(types[t]), "bg-slate-100 text-slate-700 border-slate-200");
+        }).join("") + "</div>"
+        : "")
+      + entries.map(function (e) {
+        if (!e || !e.resource) return "";
+        return fhirResourceCard(e.resource, { responseStatus: e.response ? e.response.status : "" });
+      }).join("")
+      + fhirMetaFooter(b)
+      + "</div></div>";
+  }
+
+  // Not every payload this viewer is pointed at is FHIR — API errors and plain
+  // JSON go through here too, and still have to be legible.
+  function fhirPlainCard(obj) {
+    if (obj && obj.error && (obj.error.code || obj.error.message)) {
+      return '<div class="border border-red-200 rounded-xl overflow-hidden">'
+        + '<div class="px-3 py-2 bg-red-50 border-b border-red-100 flex items-center gap-2">'
+        + '<span class="material-symbols-outlined text-base text-red-600">gpp_bad</span>'
+        + '<p class="text-xs font-bold text-red-800 font-mono">' + escapeHtml(obj.error.code || "ERROR") + "</p></div>"
+        + '<div class="p-3 space-y-2">'
+        + '<p class="text-[11px] text-red-800 leading-relaxed">' + escapeHtml(obj.error.message || "") + "</p>"
+        + (obj.error.detail ? fhirNote("Detail", fhirValueText(obj.error.detail)) : "")
+        + "</div></div>";
+    }
+    const rows = [];
+    const nested = [];
+    Object.keys(obj || {}).forEach(function (k) {
+      const v = obj[k];
+      if (v && typeof v === "object" && !Array.isArray(v) && !v.reference && !v.display && !v.text && !v.coding) {
+        nested.push([k, v]);
+      } else {
+        const text = fhirValueText(v);
+        rows.push([k, text.length > 160 ? text.slice(0, 157) + "…" : text]);
+      }
+    });
+    return '<div class="border border-slate-200 rounded-xl p-3 space-y-2.5 bg-white">'
+      + fhirKvGrid(rows)
+      + nested.map(function (n) {
+        return '<div><p class="text-[10px] uppercase font-bold text-slate-400 mb-1">' + escapeHtml(n[0]) + "</p>"
+          + fhirPlainCard(n[1]) + "</div>";
+      }).join("")
+      + "</div>";
+  }
+
+  function renderFhirGui(obj) {
+    if (obj === null || obj === undefined || typeof obj !== "object") {
+      return '<p class="p-6 text-center text-xs text-slate-400">Nothing to display.</p>';
+    }
+    if (Array.isArray(obj)) return obj.map(renderFhirGui).join("");
+    if (obj.resourceType === "Bundle") return fhirBundleCard(obj);
+    if (obj.resourceType) return fhirResourceCard(obj);
+    return fhirPlainCard(obj);
+  }
+
+  /* ----- the Visual / JSON viewer widget -----
+     Rendered as a string so it can be dropped into any innerHTML the page
+     already builds. Each instance owns two panes and switches between them;
+     nothing is stored outside the DOM.                                     */
+
+  let fhirViewSeq = 0;
+
+  function fhirViewTabClass(active) {
+    return "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors "
+      + (active ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-200 border border-slate-200");
+  }
+
+  function fhirViewerHtml(resource, opts) {
+    opts = opts || {};
+    const uid = "fhirview-" + (++fhirViewSeq);
+    let parsed = resource;
+    let json;
+    if (typeof resource === "string") {
+      try { parsed = JSON.parse(resource); json = JSON.stringify(parsed, null, 2); }
+      catch (e) { parsed = null; json = resource; }
+    } else {
+      json = JSON.stringify(resource, null, 2);
+    }
+    const height = opts.maxHeight || "max-h-96";
+    return '<div id="' + uid + '" class="border border-slate-200 rounded-xl overflow-hidden">'
+      + '<div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-100 border-b border-slate-200">'
+      + '<div class="flex items-center gap-1.5">'
+      + '<button id="' + uid + '-tab-gui" onclick="switchFhirView(\'' + uid + '\',\'gui\')" class="' + fhirViewTabClass(true) + '">Visual</button>'
+      + '<button id="' + uid + '-tab-json" onclick="switchFhirView(\'' + uid + '\',\'json\')" class="' + fhirViewTabClass(false) + '">JSON</button>'
+      + "</div>"
+      + '<button onclick="copyFhirView(\'' + uid + '\')" class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1">'
+      + '<span class="material-symbols-outlined text-[13px]">content_copy</span> Copy JSON</button>'
+      + "</div>"
+      + '<div id="' + uid + '-gui" class="p-3 bg-slate-50 space-y-2.5 ' + height + ' overflow-y-auto">'
+      + (parsed ? renderFhirGui(parsed) : '<p class="p-6 text-center text-xs text-red-600">The stored payload is not valid JSON — see the JSON tab.</p>')
+      + "</div>"
+      + '<pre id="' + uid + '-json" class="hidden p-4 code-bg text-slate-300 font-mono text-[11px] overflow-x-auto ' + height + ' leading-relaxed whitespace-pre-wrap">'
+      + escapeHtml(json) + "</pre></div>";
+  }
+
+  function switchFhirView(uid, mode) {
+    const gui = document.getElementById(uid + "-gui");
+    const json = document.getElementById(uid + "-json");
+    const tabGui = document.getElementById(uid + "-tab-gui");
+    const tabJson = document.getElementById(uid + "-tab-json");
+    if (!gui || !json) return;
+    const visual = mode !== "json";
+    gui.classList.toggle("hidden", !visual);
+    json.classList.toggle("hidden", visual);
+    if (tabGui) tabGui.className = fhirViewTabClass(visual);
+    if (tabJson) tabJson.className = fhirViewTabClass(!visual);
+  }
+
+  function copyFhirView(uid) {
+    const json = document.getElementById(uid + "-json");
+    copyText(json ? json.innerText : "", "FHIR JSON copied to clipboard.");
   }
 
   /* ---------- 10. HOME, DASHBOARD, SECURITY ---------- */
@@ -5117,15 +7116,18 @@
     renderHomeStats();
     renderPatientRecords();
     renderRecordFilter();
+    renderPatientPolicies();
     renderLinkRequests();
     renderPendingConsents();
     renderActiveConsents();
     renderHipConsents();
+    renderInsurerConsents();
     renderAccessLogs();
     renderDashboard();
     updateNavBadge();
     if (state.abha) renderAbhaCard();
     if (state.hip) renderHipCard();
+    if (state.insurer) renderInsurerCard();
     onApiEndpointChange();
   }
 
@@ -5138,7 +7140,9 @@
     { tab: "hospital", title: "4 · Ask for consent", text: "Raise a consent request scoped to a purpose code, specific HI types, and a date range. Then try to fetch before it's signed — you'll get a 403 from the database rules." },
     { tab: "patient", title: "5 · Sign it", text: "Review the request, untick anything you'd rather withhold, and sign with the OTP. Only the records you ticked are copied into the disclosure bundle." },
     { tab: "hospital", title: "6 · Fetch, then lose access", text: "Fetch the records — it works now. Then go revoke the consent from the patient portal and fetch again. Same call, immediate 403." },
-    { tab: "api", title: "7 · Do it all over HTTP", text: "Every step above is available as an endpoint. The console executes for real against the same rules, so your HMIS integration behaves identically." }
+    { tab: "patient", title: "7 · Link an insurance policy", text: "In the patient portal, link a policy number to your ABHA. That is all your insurer will ever need to find you — and, on its own, it discloses nothing." },
+    { tab: "insurer", title: "8 · Settle a claim as the insurer", text: "Register an insurer, type just the policy number, and request access under HPAYMT. Approve it as the patient and the treatment details come back with the ICD-11 MMS code the claim is adjudicated on." },
+    { tab: "api", title: "9 · Do it all over HTTP", text: "Every step above is available as an endpoint. The console executes for real against the same rules, so your HMIS integration behaves identically." }
   ];
 
   function runGuidedDemo() {
@@ -5154,11 +7158,11 @@
   function bindGlobalHandlers() {
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
-      ["auth-modal", "consent-modal", "record-modal", "self-record-modal", "apikey-modal", "help-modal"].forEach(closeModal);
+      ["auth-modal", "consent-modal", "record-modal", "self-record-modal", "policy-modal", "apikey-modal", "help-modal"].forEach(closeModal);
     });
 
     // Clicking a modal's backdrop (but not its panel) dismisses it.
-    ["auth-modal", "consent-modal", "record-modal", "self-record-modal", "apikey-modal", "help-modal"].forEach(function (id) {
+    ["auth-modal", "consent-modal", "record-modal", "self-record-modal", "policy-modal", "apikey-modal", "help-modal"].forEach(function (id) {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener("click", function (e) { if (e.target === el) closeModal(id); });
@@ -5220,6 +7224,10 @@
     openConsentReview: openConsentReview, grantConsent: grantConsent,
     denyConsent: denyConsent, revokeConsent: revokeConsent,
     registerHip: registerHip, rotateApiKey: rotateApiKey, copyIssuedApiKey: copyIssuedApiKey,
+    openPolicyModal: openPolicyModal, linkPolicy: linkPolicy, unlinkPolicy: unlinkPolicy,
+    registerInsurer: registerInsurer, rotateInsurerApiKey: rotateInsurerApiKey,
+    lookupPolicy: lookupPolicy, raiseClaimConsent: raiseClaimConsent,
+    fetchClaimRecords: fetchClaimRecords, openClaimRecord: openClaimRecord, closeClaimPanel: closeClaimPanel,
     discoverPatient: discoverPatient, useDiscovered: useDiscovered,
     pushCareContext: pushCareContext, raiseConsentRequest: raiseConsentRequest,
     fetchConsentedData: fetchConsentedData, openFetchedRecord: openFetchedRecord, closeFetchPanel: closeFetchPanel,
@@ -5227,6 +7235,8 @@
     prettyApiBody: prettyApiBody, copyApiResponse: copyApiResponse, switchSnippet: switchSnippet,
     performTerminologySearch: performTerminologySearch, showConceptMap: showConceptMap,
     selectFhirSample: selectFhirSample, validateExplorerJson: validateExplorerJson, copyExplorerJson: copyExplorerJson,
+    switchExplorerView: switchExplorerView, switchApiResponseView: switchApiResponseView,
+    switchFhirView: switchFhirView, copyFhirView: copyFhirView,
     runGuidedDemo: runGuidedDemo
   };
 

@@ -1,0 +1,369 @@
+rules_version = '2';
+
+// Firestore security rules for the AyurFHIR portal.
+//
+// These govern the BROWSER only. The backend uses the Firebase Admin SDK, which
+// bypasses rules entirely, so nothing here can lock the server out.
+//
+// Storage shape: the portal was written against the Realtime Database, and the
+// adapter in index.html maps its paths onto Firestore. Nested RTDB nodes are
+// flattened, so "linkRequests/<abhaKey>/<lrId>" is stored as the document
+// "linkRequests/<abhaKey>__<lrId>" carrying _parent:<abhaKey> and _key:<lrId>.
+// Rules below read _parent/_key rather than parsing the document id.
+//
+// Three actors share this database:
+//   patient - owns abha/<abhaKey>,     identified by that document's ownerUid
+//   HIP     - owns hips/<hipId>,       identified by that document's ownerUid
+//   insurer - owns insurers/<insurerId>, identified by that document's ownerUid
+// A user can be more than one. Ownership is always proven from a document,
+// never from a client-supplied claim.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    // Set only by the backend via setCustomUserClaims, so it cannot be forged
+    // by a browser the way a Firestore field could be.
+    function isAdmin() {
+      return signedIn() && request.auth.token.get('role', '') == 'admin';
+    }
+
+    function abhaDoc(abhaKey) {
+      return get(/databases/$(database)/documents/abha/$(abhaKey)).data;
+    }
+
+    function ownsAbha(abhaKey) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/abha/$(abhaKey))
+        && abhaDoc(abhaKey).ownerUid == me();
+    }
+
+    function hipDoc(hipId) {
+      return get(/databases/$(database)/documents/hips/$(hipId)).data;
+    }
+
+    function ownsHip(hipId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/hips/$(hipId))
+        && hipDoc(hipId).ownerUid == me();
+    }
+
+    function insurerDoc(insurerId) {
+      return get(/databases/$(database)/documents/insurers/$(insurerId)).data;
+    }
+
+    function ownsInsurer(insurerId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/insurers/$(insurerId))
+        && insurerDoc(insurerId).ownerUid == me();
+    }
+
+    function consentDoc(cid) {
+      return get(/databases/$(database)/documents/consents/$(cid)).data;
+    }
+
+    function consentExists(cid) {
+      return exists(/databases/$(database)/documents/consents/$(cid));
+    }
+
+    // Adapter bookkeeping. A client must not forge the parent of a flattened
+    // document, so _parent is pinned and _key must match the document id.
+    function parentIs(expected) {
+      return request.resource.data.get('_parent', '') == expected;
+    }
+
+    // ---------------------------------------------------------------------
+    // users - profile, and the authorization record the backend reads
+    // ---------------------------------------------------------------------
+    // The portal's signup form writes `role` straight from a <select>. The
+    // backend's requireRole('admin') reads this same field, so an unconstrained
+    // write here would let any browser grant itself the admin API. The client is
+    // therefore limited to the portal's own vocabulary and can never introduce
+    // or retain 'admin'; only the Admin SDK can set that.
+    function clientRoleAllowed() {
+      let next = request.resource.data.get('role', 'patient');
+      return next == 'patient' || next == 'hospital' || next == 'insurer' || next == 'user';
+    }
+
+    function roleUnchanged() {
+      return request.resource.data.get('role', '') == resource.data.get('role', '');
+    }
+
+    match /users/{uid} {
+      allow get, list: if me() == uid || isAdmin();
+      allow create: if me() == uid && clientRoleAllowed();
+      // roleUnchanged() keeps a backend-granted admin able to edit their own
+      // profile without the write being rejected for carrying role:'admin'.
+      allow update: if me() == uid && (clientRoleAllowed() || roleUnchanged());
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // abha - the patient's identity record. Private to its owner.
+    // ---------------------------------------------------------------------
+    match /abha/{abhaKey} {
+      allow get: if signedIn() && (resource.data.ownerUid == me() || isAdmin());
+      allow list: if isAdmin();
+      allow create: if signedIn() && request.resource.data.ownerUid == me();
+      allow update: if signedIn() && resource.data.ownerUid == me()
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // abhaDirectory - discovery. Deliberately readable by any signed-in user:
+    // a HIP resolves a patient by ABHA address before any consent exists. The
+    // records are masked by construction (nameMasked, abhaNumberMasked).
+    // ---------------------------------------------------------------------
+    match /abhaDirectory/{addressKey} {
+      allow get, list: if signedIn();
+      allow create: if signedIn() && request.resource.data.ownerUid == me();
+      allow update: if signedIn() && resource.data.ownerUid == me()
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // hips - facility registration. Holds apiKeyHash, so owner-only.
+    // ---------------------------------------------------------------------
+    match /hips/{hipId} {
+      allow get: if signedIn() && (resource.data.ownerUid == me() || isAdmin());
+      allow list: if isAdmin();
+      allow create: if signedIn() && request.resource.data.ownerUid == me();
+      allow update: if signedIn() && resource.data.ownerUid == me()
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // careContexts - the patient's linked records. Written by the patient
+    // only: a HIP offers records through linkRequests, and they land here when
+    // the patient approves.
+    // ---------------------------------------------------------------------
+    match /careContexts/{docId} {
+      allow get, list: if ownsAbha(resource.data.get('_parent', ''));
+      allow create: if ownsAbha(request.resource.data.get('_parent', ''));
+      allow update, delete: if ownsAbha(resource.data.get('_parent', ''));
+    }
+
+    // ---------------------------------------------------------------------
+    // linkRequests - a HIP offers a record to a patient; the patient decides.
+    // Created by the HIP that owns the named hipId; the status transition is
+    // the patient's alone.
+    // ---------------------------------------------------------------------
+    match /linkRequests/{docId} {
+      allow get, list: if ownsAbha(resource.data.get('_parent', ''))
+                       || ownsHip(resource.data.get('hipId', ''));
+      allow create: if request.resource.data.get('requesterUid', '') == me()
+                    && ownsHip(request.resource.data.get('hipId', ''));
+      // Only the patient decides, and the offer itself stays immutable.
+      allow update: if ownsAbha(resource.data.get('_parent', ''))
+                    && request.resource.data.get('hipId', '') == resource.data.get('hipId', '')
+                    && request.resource.data.get('requesterUid', '') == resource.data.get('requesterUid', '')
+                    && request.resource.data.get('fhirBundle', '') == resource.data.get('fhirBundle', '');
+      allow delete: if ownsAbha(resource.data.get('_parent', ''));
+    }
+
+    // ---------------------------------------------------------------------
+    // consents - the consent artefact. Requested by a HIP, decided by the
+    // patient. Both parties are named in the document, so no lookup is needed.
+    // ---------------------------------------------------------------------
+    match /consents/{cid} {
+      allow get: if signedIn() && (resource.data.requesterUid == me()
+                                   || resource.data.patientUid == me()
+                                   || isAdmin());
+      allow list: if isAdmin();
+      // hipId/hipName carry the requester's identity whatever the requester is;
+      // insurerId is the field a payer's request is authorised against. ownsHip
+      // tests exists() first, so an insurer id there simply falls through.
+      allow create: if request.resource.data.get('requesterUid', '') == me()
+                    && request.resource.data.get('status', '') == 'REQUESTED'
+                    && (ownsHip(request.resource.data.get('hipId', ''))
+                        || ownsInsurer(request.resource.data.get('insurerId', '')));
+      // The decision is the patient's alone. Without the clause below, a
+      // requester - hospital or insurer - could flip its own request to
+      // GRANTED. That discloses nothing, because the payload under
+      // disclosures/<cid> can still only be written by the patient, but it
+      // would let a requester show a grant the patient never signed and put a
+      // CONSENT_GRANTED entry in their ledger. A requester may only revoke.
+      function statusChangeAllowed() {
+        return resource.data.patientUid == me()
+          || request.resource.data.get('status', '') == resource.data.get('status', '')
+          || request.resource.data.get('status', '') == 'REVOKED';
+      }
+
+      // Either party may act (patient grants/denies/revokes, requester revokes),
+      // but neither may rewrite who the consent is between or what it covers.
+      allow update: if signedIn()
+                    && (resource.data.patientUid == me() || resource.data.requesterUid == me())
+                    && statusChangeAllowed()
+                    && request.resource.data.requesterUid == resource.data.requesterUid
+                    && request.resource.data.patientUid == resource.data.patientUid
+                    && request.resource.data.get('hipId', '') == resource.data.get('hipId', '')
+                    && request.resource.data.get('abhaKey', '') == resource.data.get('abhaKey', '')
+                    && request.resource.data.get('hiTypes', '') == resource.data.get('hiTypes', '')
+                    && request.resource.data.get('expiryAt', 0) == resource.data.get('expiryAt', 0);
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // disclosures - the payload released under a granted consent. Written and
+    // withdrawn by the patient; read by the requesting HIP.
+    // ---------------------------------------------------------------------
+    match /disclosures/{cid} {
+      allow get: if signedIn() && consentExists(cid)
+                 && (consentDoc(cid).patientUid == me()
+                     || consentDoc(cid).requesterUid == me()
+                     || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if signedIn() && consentExists(cid)
+                                    && consentDoc(cid).patientUid == me();
+    }
+
+    // ---------------------------------------------------------------------
+    // patientConsents / hipConsents - index entries pointing at a consent.
+    // Each holds only a timestamp, so the check is that the consent exists and
+    // the writer is a party to it, and that the index is filed in the right
+    // place. This mirrors what the old Realtime Database rules did.
+    // ---------------------------------------------------------------------
+    match /patientConsents/{docId} {
+      allow get, list: if ownsAbha(resource.data.get('_parent', ''));
+      allow create: if signedIn()
+                    && consentExists(request.resource.data.get('_key', ''))
+                    && consentDoc(request.resource.data.get('_key', '')).requesterUid == me()
+                    && parentIs(consentDoc(request.resource.data.get('_key', '')).abhaKey);
+      allow update: if false;
+      allow delete: if ownsAbha(resource.data.get('_parent', ''));
+    }
+
+    match /hipConsents/{docId} {
+      allow get, list: if ownsHip(resource.data.get('_parent', ''));
+      allow create: if signedIn()
+                    && consentExists(request.resource.data.get('_key', ''))
+                    && consentDoc(request.resource.data.get('_key', '')).requesterUid == me()
+                    && ownsHip(request.resource.data.get('_parent', ''))
+                    && parentIs(consentDoc(request.resource.data.get('_key', '')).hipId);
+      allow update: if false;
+      allow delete: if ownsHip(resource.data.get('_parent', ''));
+    }
+
+    // ---------------------------------------------------------------------
+    // insurers - the payer's registration. Holds apiKeyHash, so owner-only.
+    // ---------------------------------------------------------------------
+    match /insurers/{insurerId} {
+      allow get: if signedIn() && (resource.data.ownerUid == me() || isAdmin());
+      allow list: if isAdmin();
+      allow create: if signedIn() && request.resource.data.ownerUid == me();
+      allow update: if signedIn() && resource.data.ownerUid == me()
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // insurerDirectory - the public half of a registration, so a patient can
+    // pick their insurer from a list before any relationship exists. Carries
+    // no key material: name, type, city and IRDAI number only.
+    // ---------------------------------------------------------------------
+    match /insurerDirectory/{insurerId} {
+      allow get, list: if signedIn();
+      allow create: if signedIn() && request.resource.data.ownerUid == me();
+      allow update: if signedIn() && resource.data.ownerUid == me()
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // policyDirectory - policy number -> ABHA, keyed by the normalised policy
+    // number so an insurer can resolve a claimant with the number alone.
+    //
+    // This is the one lookup that must NOT be open the way abhaDirectory is. A
+    // policy number is guessable and, unlike an ABHA address, it is printed on
+    // paper that changes hands: readable-by-any-insurer would turn it into a
+    // fishing licence. So a get is allowed only to the policyholder, or to the
+    // insurer named in the document - and only the patient may write it, which
+    // is what stops an insurer attaching a policy to an ABHA that never claimed
+    // it. A number that exists but belongs to another insurer and a number that
+    // does not exist both come back denied, which is the same answer.
+    // ---------------------------------------------------------------------
+    match /policyDirectory/{policyKey} {
+      allow get: if signedIn()
+                 && (resource.data.get('patientUid', '') == me()
+                     || ownsInsurer(resource.data.get('insurerId', ''))
+                     || isAdmin());
+      allow list: if isAdmin();
+      allow create: if ownsAbha(request.resource.data.get('abhaKey', ''))
+                    && request.resource.data.get('patientUid', '') == me();
+      // The patient may correct their own entry, but not move it to another
+      // ABHA and not relabel which insurer it belongs to.
+      allow update: if ownsAbha(resource.data.get('abhaKey', ''))
+                    && request.resource.data.get('abhaKey', '') == resource.data.get('abhaKey', '')
+                    && request.resource.data.get('patientUid', '') == resource.data.get('patientUid', '');
+      allow delete: if ownsAbha(resource.data.get('abhaKey', ''));
+    }
+
+    // ---------------------------------------------------------------------
+    // patientPolicies - the patient's own list of linked policies. Private:
+    // an insurer resolves one policy it already knows, never enumerates them.
+    // ---------------------------------------------------------------------
+    match /patientPolicies/{docId} {
+      allow get, list: if ownsAbha(resource.data.get('_parent', ''));
+      allow create: if ownsAbha(request.resource.data.get('_parent', ''));
+      allow update, delete: if ownsAbha(resource.data.get('_parent', ''));
+    }
+
+    // ---------------------------------------------------------------------
+    // insurerConsents - index entries pointing at a consent, the payer-side
+    // twin of hipConsents.
+    // ---------------------------------------------------------------------
+    match /insurerConsents/{docId} {
+      allow get, list: if ownsInsurer(resource.data.get('_parent', ''));
+      allow create: if signedIn()
+                    && consentExists(request.resource.data.get('_key', ''))
+                    && consentDoc(request.resource.data.get('_key', '')).requesterUid == me()
+                    && ownsInsurer(request.resource.data.get('_parent', ''))
+                    && parentIs(consentDoc(request.resource.data.get('_key', '')).get('insurerId', ''));
+      allow update: if false;
+      allow delete: if ownsInsurer(resource.data.get('_parent', ''));
+    }
+
+    // ---------------------------------------------------------------------
+    // dataAccessLogs - the patient's audit trail. Append-only by design: the
+    // page states these can never be edited, so update and delete are closed
+    // to everyone, including the patient.
+    // ---------------------------------------------------------------------
+    match /dataAccessLogs/{docId} {
+      allow get, list: if ownsAbha(resource.data.get('_parent', '')) || isAdmin();
+      allow create: if signedIn() && request.resource.data.get('actorUid', '') == me();
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // auditLogs / apiRequests - platform-wide logs. Any signed-in user may
+    // append their own entry; reading is for admins. The portal already treats
+    // these writes as best-effort and swallows a denial.
+    // ---------------------------------------------------------------------
+    match /auditLogs/{docId} {
+      allow get, list: if isAdmin();
+      allow create: if signedIn() && request.resource.data.get('actorUid', '') == me();
+      allow update, delete: if false;
+    }
+
+    match /apiRequests/{docId} {
+      allow get, list: if isAdmin();
+      allow create: if signedIn();
+      allow update, delete: if false;
+    }
+
+    // Anything not matched above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

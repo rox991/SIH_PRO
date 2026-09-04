@@ -5,3 +5,6 @@ node_modules/
 secrets/
 *service-account*.json
 npm-debug.log*
+
+# Firebase emulator artifacts
+*-debug.log
