@@ -1,0 +1,2524 @@
+
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Console - NAMASTE Bridge / ABDM Consent Governance</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+  <!-- Google Material Symbols Outlined -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+
+  <!-- Firebase Web SDK v10 (Compat CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0f172a",
+            "ayush-teal": "#006a61",
+            "ayush-mint": "#89f5e7"
+          },
+          borderRadius: {
+            "DEFAULT": "0.375rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem"
+          },
+          spacing: {
+            "sidebar-width": "260px"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F8FAFC;
+    }
+    .syntax-string { color: #0090a9; }
+    .syntax-number { color: #2563eb; }
+    .syntax-boolean { color: #dc2626; }
+    .syntax-null { color: #64748b; }
+    .syntax-key { color: #0f172a; font-weight: 600; }
+    .code-bg { background-color: #0f172a; }
+    .modal-backdrop {
+      background-color: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+    }
+    .pill { padding: 0.125rem 0.5rem; border-radius: 0.375rem; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }
+    .st-granted   { background:#d1fae5; color:#065f46; }
+    .st-requested { background:#fef3c7; color:#92400e; }
+    .st-denied    { background:#fee2e2; color:#991b1b; }
+    .st-revoked   { background:#e2e8f0; color:#334155; }
+    .st-expired   { background:#f1f5f9; color:#64748b; }
+    .st-active    { background:#d1fae5; color:#065f46; }
+    .st-suspended { background:#fee2e2; color:#991b1b; }
+  </style>
+</head>
+<body class="h-full text-slate-800 antialiased overflow-x-hidden">
+
+  <!-- ==================== AUTH GUARD / LOGIN & ACCESS DENIED OVERLAY ==================== -->
+  <div id="auth-guard-modal" class="fixed inset-0 modal-backdrop z-[60] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-8 space-y-6 shadow-2xl relative">
+
+      <!-- HEADER -->
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-900 to-teal-900 text-white flex items-center justify-center mx-auto shadow-lg">
+          <span class="material-symbols-outlined text-3xl">admin_panel_settings</span>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-900">Admin Console Access</h2>
+        <p class="text-xs text-slate-500">NAMASTE Bridge &middot; ABDM Consent Governance Layer</p>
+      </div>
+
+      <!-- ACCESS DENIED CARD (Hidden by default, shown if logged in as non-admin) -->
+      <div id="access-denied-box" class="hidden p-4 bg-red-50 border border-red-200 rounded-xl space-y-3 text-xs text-red-800">
+        <div class="flex items-center gap-2 font-bold text-red-700 text-sm">
+          <span class="material-symbols-outlined text-base">block</span> Access Denied: Admin Privileges Required
+        </div>
+        <p class="leading-relaxed">
+          You are currently signed in as <strong id="denied-user-email">user@hospital.gov.in</strong> with the <span id="denied-user-role" class="bg-red-200 text-red-900 px-1.5 py-0.5 rounded font-bold uppercase text-[10px]">USER</span> role. Only System Admins can open the Admin Console.
+        </p>
+        <div class="flex gap-2 pt-2">
+          <button onclick="handleAdminLogout()" class="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs transition-colors">
+            Sign Out &amp; Switch Account
+          </button>
+          <a href="index.html" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-center font-bold rounded-lg text-xs transition-colors">
+            Return to Portal
+          </a>
+        </div>
+      </div>
+
+      <!-- LOGIN & SIGN UP FORMS CONTAINER -->
+      <div class="p-4 bg-teal-50 border-2 border-teal-500 rounded-2xl space-y-2 text-center shadow-sm">
+        <p class="text-xs font-bold text-teal-950">Quick Evaluation / Demo Mode</p>
+        <button type="button" onclick="enableDemoAdminSession()" class="w-full py-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-lg">bolt</span>
+          <span>1-Click Demo Admin Access (Unlock All Tabs)</span>
+        </button>
+        <p class="text-[11px] text-teal-700">Instant access to Terminology, Cross-Standard Mappings, WHO ICD-11 live container, &amp; Governance.</p>
+      </div>
+      <div id="admin-auth-forms" class="space-y-4">
+        <!-- Auth Tabs: Sign In / Sign Up -->
+        <div class="flex border-b border-slate-200">
+          <button onclick="switchAdminAuthTab('signin')" id="tab-admin-signin" class="flex-1 py-2 font-bold text-xs border-b-2 border-slate-900 text-slate-900">
+            Admin Sign In
+          </button>
+          <button onclick="switchAdminAuthTab('signup')" id="tab-admin-signup" class="flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700">
+            Bootstrap First Admin
+          </button>
+        </div>
+
+        <!-- SIGN IN FORM -->
+        <form id="form-admin-signin" onsubmit="handleAdminSignIn(event)" class="space-y-4 text-xs">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Admin Email Address</label>
+            <input id="admin-signin-email" type="email" required placeholder="admin@yourorg.gov.in" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 focus:bg-white transition-all" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Password</label>
+            <input id="admin-signin-password" type="password" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 focus:bg-white transition-all" />
+          </div>
+
+          <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-colors shadow-md flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-base">lock_open</span> Sign In as Admin
+          </button>
+        </form>
+
+        <!-- SIGN UP FORM -->
+        <form id="form-admin-signup" onsubmit="handleAdminSignUp(event)" class="space-y-3 text-xs hidden">
+          <div id="admin-bootstrap-open" class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+            <strong>One-time bootstrap.</strong> The very first admin account may be self-registered. The moment it exists, the
+            database rules stop accepting self-assigned <code>admin</code> roles &mdash; every later admin must be promoted by an
+            existing admin from the Users &amp; Roles tab.
+          </div>
+          <div id="admin-bootstrap-closed" class="hidden p-3 bg-red-50 border border-red-200 rounded-xl text-[11px] text-red-800 leading-relaxed">
+            <strong>Bootstrap already used.</strong> An admin account exists for this project, so
+            <code>database.rules.json</code> will reject a self-assigned admin role. Ask an existing admin to promote your
+            account instead &mdash; registering here will fail at the database layer, not just in this page.
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Admin Full Name</label>
+            <input id="admin-signup-name" type="text" required placeholder="System Administrator" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Admin Email Address</label>
+            <input id="admin-signup-email" type="email" required placeholder="admin@yourorg.gov.in" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">Password</label>
+            <input id="admin-signup-password" type="password" required minlength="6" placeholder="At least 6 characters" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
+          </div>
+          <button type="submit" class="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition-colors">
+            Register First Admin
+          </button>
+        </form>
+
+        <p id="admin-auth-error" class="hidden text-xs text-red-600 font-semibold text-center"></p>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 text-center space-y-1">
+        <button onclick="enableDemoAdminSession()" class="text-xs text-teal-600 font-semibold hover:underline flex items-center justify-center gap-1 mx-auto">
+          <span class="material-symbols-outlined text-sm">visibility</span> Enter Layout Preview Mode (no database access)
+        </button>
+        <p class="text-[10px] text-slate-400 leading-relaxed">Preview mode only unlocks the chrome. Every governance table stays empty because the security rules require a real admin session &mdash; that is the point.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SIDEBAR NAVIGATION ==================== -->
+  <aside id="admin-sidebar" aria-label="Admin navigation"
+         class="fixed inset-y-0 left-0 z-50 w-[84vw] max-w-[300px] md:w-sidebar-width bg-white border-r border-slate-200 flex flex-col shadow-2xl md:shadow-sm -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out">
+    <div class="p-5 border-b border-slate-100 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-900 to-teal-900 text-white flex items-center justify-center shadow-md shrink-0">
+          <span class="material-symbols-outlined text-2xl">admin_panel_settings</span>
+        </div>
+        <div class="min-w-0">
+          <h1 class="font-bold text-slate-900 text-sm leading-tight truncate">NAMASTE Bridge</h1>
+          <p class="text-[11px] text-slate-500 font-medium">Admin Console v2.0</p>
+        </div>
+      </div>
+      <button onclick="closeSidebar()" aria-label="Close navigation"
+              class="md:hidden shrink-0 p-1.5 -mr-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors">
+        <span class="material-symbols-outlined text-xl">close</span>
+      </button>
+    </div>
+
+    <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2">Monitoring</div>
+
+      <a href="#overview" onclick="switchAdminTab('overview')" id="nav-admin-overview" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-900 font-bold text-xs transition-all">
+        <span class="material-symbols-outlined text-lg">dashboard</span>
+        <span>Overview</span>
+      </a>
+
+      <a href="#requests" onclick="switchAdminTab('requests')" id="nav-admin-requests" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">electric_bolt</span>
+        <span>API Requests</span>
+      </a>
+
+      <a href="#traffic" onclick="switchAdminTab('traffic')" id="nav-admin-traffic" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">signal_cellular_alt</span>
+        <span>Live Traffic</span>
+      </a>
+
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">ABDM Governance</div>
+
+      <a href="#consents" onclick="switchAdminTab('consents')" id="nav-admin-consents" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">verified_user</span>
+        <span>Consent Registry</span>
+        <span id="nav-consent-badge" class="ml-auto px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold hidden">0</span>
+      </a>
+
+      <a href="#access" onclick="switchAdminTab('access')" id="nav-admin-access" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">receipt_long</span>
+        <span>Access Ledger</span>
+      </a>
+
+      <a href="#abha" onclick="switchAdminTab('abha')" id="nav-admin-abha" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">badge</span>
+        <span>ABHA Registry</span>
+      </a>
+
+      <a href="#facilities" onclick="switchAdminTab('facilities')" id="nav-admin-facilities" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">local_hospital</span>
+        <span>HIP / HIU Registry</span>
+      </a>
+
+      <a href="#links" onclick="switchAdminTab('links')" id="nav-admin-links" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">link</span>
+        <span>Linking Activity</span>
+      </a>
+
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">Data Management</div>
+
+      <a href="#terminology" onclick="switchAdminTab('terminology')" id="nav-admin-terminology" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">menu_book</span>
+        <span>Terminology</span>
+      </a>
+
+      <a href="#mappings" onclick="switchAdminTab('mappings')" id="nav-admin-mappings" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">alt_route</span>
+        <span>Mappings</span>
+      </a>
+
+      <a href="#fhir" onclick="switchAdminTab('fhir')" id="nav-admin-fhir" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">dataset_linked</span>
+        <span>FHIR Resources</span>
+      </a>
+
+      <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">Governance &amp; Security</div>
+
+      <a href="#users" onclick="switchAdminTab('users')" id="nav-admin-users" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">group</span>
+        <span>Users &amp; Roles</span>
+      </a>
+
+      <a href="#audit" onclick="switchAdminTab('audit')" id="nav-admin-audit" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">policy</span>
+        <span>Admin Audit Logs</span>
+      </a>
+
+      <a href="#health" onclick="switchAdminTab('health')" id="nav-admin-health" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg">health_and_safety</span>
+        <span>System Health</span>
+      </a>
+
+      <a href="index.html" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-800 font-bold text-xs mt-4 hover:bg-teal-100 transition-all">
+        <span class="material-symbols-outlined text-base">home</span>
+        <span>Go to Portal (index.html)</span>
+      </a>
+    </nav>
+
+    <div class="p-3 border-t border-slate-100 mt-auto bg-slate-50">
+      <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200 text-xs">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <div class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+            A
+          </div>
+          <div class="truncate">
+            <p id="admin-user-display" class="font-bold text-slate-900 truncate">Admin User</p>
+            <p id="admin-user-role" class="text-[10px] text-slate-500 truncate">Role: Super Admin</p>
+          </div>
+        </div>
+        <button onclick="handleAdminLogout()" class="text-slate-400 hover:text-red-600 p-1" title="Log Out">
+          <span class="material-symbols-outlined text-base">logout</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Tap-away backdrop for the mobile drawer. `hidden` is toggled by JS;
+       `md:hidden` keeps it suppressed on desktop even when JS has revealed it. -->
+  <div id="sidebar-backdrop" onclick="closeSidebar()"
+       class="hidden md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40"></div>
+
+  <!-- ==================== MAIN CONTENT WRAPPER ==================== -->
+  <div class="md:ml-sidebar-width flex flex-col min-h-screen min-w-0">
+    <header class="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 flex items-center justify-between gap-2 px-3 sm:px-4 md:px-8">
+      <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+        <!-- Hamburger: only reachable below md, where the sidebar is off-canvas. -->
+        <button onclick="toggleSidebar()" aria-label="Open navigation" aria-controls="admin-sidebar"
+                class="md:hidden shrink-0 p-2 -ml-1 rounded-lg text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors">
+          <span class="material-symbols-outlined text-2xl">menu</span>
+        </button>
+        <span class="material-symbols-outlined text-slate-700 text-2xl hidden md:inline shrink-0">admin_panel_settings</span>
+        <div class="min-w-0">
+          <h2 id="admin-page-title" class="font-bold text-slate-900 text-sm sm:text-base truncate">Overview Dashboard</h2>
+          <p class="text-[11px] text-slate-500 hidden sm:block truncate">Consent-governed health information exchange</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3 text-xs shrink-0">
+        <span class="hidden lg:flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full font-medium border border-emerald-200/60">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>System: Operational</span>
+        </span>
+
+        <!-- setRtdbStatus() rewrites this pill's className wholesale, so its
+             responsive classes live in that function's string too, not only here. -->
+        <span id="rtdb-status-pill" class="flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-medium shrink-0">
+          <span id="rtdb-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span id="rtdb-status-text" class="hidden sm:inline whitespace-nowrap">Realtime: Connected</span>
+        </span>
+
+        <button onclick="handleAdminLogout()" class="shrink-0 px-2.5 sm:px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors">
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <div class="bg-slate-900 text-slate-300 text-xs px-4 py-2 flex items-center justify-between border-b border-slate-800">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-amber-400 text-sm">warning</span>
+        <span><strong>Demo Environment:</strong> Use synthetic healthcare data only. Do not enter real patient information.</span>
+      </div>
+      <span class="text-[11px] text-slate-400 font-mono">Ministry of AYUSH NAMASTE &middot; WHO ICD-11 TM2 &middot; ABDM HIE-CM pattern</span>
+    </div>
+
+    <div id="rules-warning-banner" class="hidden bg-red-600 text-white text-xs px-4 py-2.5 flex items-center gap-2">
+      <span class="material-symbols-outlined text-sm">gpp_maybe</span>
+      <span id="rules-warning-text" class="font-semibold"></span>
+    </div>
+
+    <main class="flex-1 p-3 sm:p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6 md:space-y-8 min-w-0">
+
+      <!-- OVERVIEW -->
+      <section id="admin-tab-overview" class="admin-tab-content space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Realtime Statistics</h2>
+          <p class="text-xs text-slate-500">Live metrics streamed directly from the Firebase Realtime Database. Every number below is a read the security rules had to authorise.</p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Total API Requests</span>
+            <p id="stat-total-requests" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-emerald-600 uppercase">Successful Requests</span>
+            <p id="stat-successful-requests" class="text-2xl font-extrabold text-emerald-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-red-500 uppercase">Failed Requests</span>
+            <p id="stat-failed-requests" class="text-2xl font-extrabold text-red-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-teal-600 uppercase">Successful Mappings</span>
+            <p id="stat-successful-mappings" class="text-2xl font-extrabold text-teal-700">0</p>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-base font-bold text-slate-900">ABDM Exchange Layer</h3>
+          <p class="text-xs text-slate-500">Identity, facility and consent counters from the <code>abha/</code>, <code>hips/</code>, <code>consents/</code> and <code>dataAccessLogs/</code> nodes.</p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">ABHA Accounts</span>
+            <p id="stat-abha-count" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Registered Facilities</span>
+            <p id="stat-hip-count" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-emerald-600 uppercase">Live Consents</span>
+            <p id="stat-consents-live" class="text-2xl font-extrabold text-emerald-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-amber-600 uppercase">Awaiting Patient</span>
+            <p id="stat-consents-pending" class="text-2xl font-extrabold text-amber-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-red-500 uppercase">Blocked Fetches</span>
+            <p id="stat-fetch-denied" class="text-2xl font-extrabold text-red-600">0</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-900 text-base">Recent API Requests Stream</h3>
+              <code class="text-[10px] text-slate-400">apiRequests/</code>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[860px] text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                    <th class="py-2.5 px-3 whitespace-nowrap">Timestamp</th>
+                    <th class="py-2.5 px-3 whitespace-nowrap">Request ID</th>
+                    <th class="py-2.5 px-3 whitespace-nowrap">User</th>
+                    <th class="py-2.5 px-3 whitespace-nowrap">Endpoint</th>
+                    <th class="py-2.5 px-3 whitespace-nowrap">Term / Code</th>
+                    <th class="py-2.5 px-3 whitespace-nowrap">Status</th>
+                    <th class="py-2.5 px-3 whitespace-nowrap">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-requests-body" class="divide-y divide-slate-100">
+                  <tr><td colspan="7" class="py-6 text-center text-slate-400">Listening for live requests from <code>apiRequests/</code>&hellip;</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-gradient-to-br from-slate-900 to-teal-950 text-white rounded-2xl p-6 space-y-3 shadow-md">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-teal-300">shield_lock</span>
+              <h3 class="font-bold text-sm">What this console cannot do</h3>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              An admin can audit <em>that</em> data moved and <em>under which consent</em>, but cannot read the clinical payload itself.
+              The <code class="text-teal-300">disclosures/</code> node grants read access only to the patient who signed the artefact
+              and to the facility named in it &mdash; there is no admin clause. Opening a consent below shows metadata and a
+              signature, never a diagnosis.
+            </p>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              An admin also cannot revoke a consent. Withdrawal is a patient-only write in
+              <code class="text-teal-300">consents/$cid</code>, because a platform operator forcing a withdrawal would be
+              indistinguishable from one forging a grant.
+            </p>
+            <div class="pt-2 border-t border-white/10">
+              <p class="text-[10px] text-slate-400">Enforced in <code>database.rules.json</code>, not in this page.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- REQUESTS MONITOR -->
+      <section id="admin-tab-requests" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Live API Request Monitor</h2>
+          <p class="text-xs text-slate-500">Every call made through the gateway in the portal's API console, including the ones that were refused.</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[1040px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">Time</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Request ID</th>
+                  <th class="py-3 px-3 whitespace-nowrap">User Email</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Endpoint</th>
+                  <th class="py-3 px-3 whitespace-nowrap">AYUSH Term</th>
+                  <th class="py-3 px-3 whitespace-nowrap">NAMASTE Code</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Status</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Latency</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Details</th>
+                </tr>
+              </thead>
+              <tbody id="full-requests-table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIVE TRAFFIC -->
+      <section id="admin-tab-traffic" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Live Traffic</h2>
+          <p class="text-xs text-slate-500">Real-time request volume streamed from the <code>apiRequests/</code> RTDB node.</p>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Requests (last hour)</span>
+            <p id="traffic-last-hour" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Unique Users</span>
+            <p id="traffic-unique-users" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Busiest Endpoint</span>
+            <p id="traffic-top-endpoint" class="text-lg font-extrabold text-slate-900 font-mono">&mdash;</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">Requests per minute (last 20 min)</h3>
+          <div id="traffic-sparkline" class="flex items-end gap-1 h-32"></div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">Calls by endpoint</h3>
+          <div id="traffic-endpoint-breakdown" class="space-y-2"></div>
+        </div>
+      </section>
+
+      <!-- ==================== CONSENT REGISTRY ==================== -->
+      <section id="admin-tab-consents" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Consent Registry</h2>
+          <p class="text-xs text-slate-500">
+            Every consent artefact raised against a patient, live from <code>consents/</code>. This is the ledger a regulator would
+            ask for: who asked, for what, for how long, and what the patient decided.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <button onclick="setConsentFilter('ALL')" id="cf-ALL" class="consent-filter-btn p-3 rounded-xl border text-left transition-all bg-slate-900 border-slate-900 text-white">
+            <span class="block text-[10px] font-semibold uppercase opacity-70">All</span>
+            <span id="cf-count-ALL" class="block text-lg font-extrabold">0</span>
+          </button>
+          <button onclick="setConsentFilter('REQUESTED')" id="cf-REQUESTED" class="consent-filter-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 text-slate-700 hover:border-slate-400">
+            <span class="block text-[10px] font-semibold uppercase opacity-70">Requested</span>
+            <span id="cf-count-REQUESTED" class="block text-lg font-extrabold">0</span>
+          </button>
+          <button onclick="setConsentFilter('GRANTED')" id="cf-GRANTED" class="consent-filter-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 text-slate-700 hover:border-slate-400">
+            <span class="block text-[10px] font-semibold uppercase opacity-70">Granted</span>
+            <span id="cf-count-GRANTED" class="block text-lg font-extrabold">0</span>
+          </button>
+          <button onclick="setConsentFilter('DENIED')" id="cf-DENIED" class="consent-filter-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 text-slate-700 hover:border-slate-400">
+            <span class="block text-[10px] font-semibold uppercase opacity-70">Denied</span>
+            <span id="cf-count-DENIED" class="block text-lg font-extrabold">0</span>
+          </button>
+          <button onclick="setConsentFilter('REVOKED')" id="cf-REVOKED" class="consent-filter-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 text-slate-700 hover:border-slate-400">
+            <span class="block text-[10px] font-semibold uppercase opacity-70">Revoked / Expired</span>
+            <span id="cf-count-REVOKED" class="block text-lg font-extrabold">0</span>
+          </button>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-900 text-base">Consent artefacts</h3>
+            <input id="consent-search" oninput="renderConsentRegistry()" type="text" placeholder="Filter by ABHA address, facility or purpose&hellip;" class="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg w-72 outline-none focus:border-teal-600" />
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[1180px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">Raised</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Patient (ABHA address)</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Requesting Facility</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Purpose</th>
+                  <th class="py-3 px-3 whitespace-nowrap">HI Types</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Window</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Status</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Expiry</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Shared</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Artefact</th>
+                </tr>
+              </thead>
+              <tbody id="admin-consents-table-body" class="divide-y divide-slate-100">
+                <tr><td colspan="10" class="py-6 text-center text-slate-400">Waiting for an admin session&hellip;</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== ACCESS LEDGER ==================== -->
+      <section id="admin-tab-access" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Data Access Ledger</h2>
+          <p class="text-xs text-slate-500">
+            Append-only log from <code>dataAccessLogs/</code>. Facilities can write to it but cannot read it back, so a facility
+            cannot audit &mdash; or quietly tidy &mdash; its own access history. Refused fetches are recorded just as loudly as successful ones.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Ledger Entries</span>
+            <p id="stat-access-total" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-emerald-600 uppercase">Successful Fetches</span>
+            <p id="stat-access-success" class="text-2xl font-extrabold text-emerald-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-red-500 uppercase">Refused Fetches</span>
+            <p id="stat-access-denied" class="text-2xl font-extrabold text-red-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Records Disclosed</span>
+            <p id="stat-access-records" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-900 text-base">Chronological access events</h3>
+            <div class="flex items-center gap-2">
+              <select id="access-action-filter" onchange="renderAccessLedger()" class="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-teal-600">
+                <option value="ALL">All actions</option>
+                <option value="FETCH_SUCCESS">Fetch succeeded</option>
+                <option value="FETCH_DENIED">Fetch refused</option>
+                <option value="CONSENT_REQUESTED">Consent requested</option>
+                <option value="CONSENT_GRANTED">Consent granted</option>
+                <option value="CONSENT_DENIED">Consent denied</option>
+                <option value="CONSENT_REVOKED">Consent revoked</option>
+                <option value="LINK_REQUESTED">Link requested</option>
+                <option value="LINK_APPROVED">Link approved</option>
+                <option value="LINK_REJECTED">Link rejected</option>
+                <option value="DISCOVERY">Patient discovery</option>
+              </select>
+              <input id="access-search" oninput="renderAccessLedger()" type="text" placeholder="Filter by actor or ABHA&hellip;" class="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg w-56 outline-none focus:border-teal-600" />
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[940px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">When</th>
+                  <th class="py-3 px-3 whitespace-nowrap">ABHA (masked)</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Actor</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Action</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Purpose</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Records</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Consent</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Detail</th>
+                </tr>
+              </thead>
+              <tbody id="admin-access-table-body" class="divide-y divide-slate-100">
+                <tr><td colspan="8" class="py-6 text-center text-slate-400">Waiting for an admin session&hellip;</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== ABHA REGISTRY ==================== -->
+      <section id="admin-tab-abha" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">ABHA Registry</h2>
+          <p class="text-xs text-slate-500">
+            Health accounts created through the Aadhaar onboarding flow, from <code>abha/</code>. Note what is absent: no Aadhaar
+            number is stored anywhere in this database &mdash; only the last four digits, kept so a patient can recognise their own record.
+          </p>
+        </div>
+
+        <div class="p-4 bg-teal-50 border border-teal-200 rounded-2xl flex items-start gap-3">
+          <span class="material-symbols-outlined text-teal-700 text-xl">privacy_tip</span>
+          <div class="text-xs text-teal-900 leading-relaxed">
+            <strong>Data minimisation.</strong> The Aadhaar number the patient types is used to derive a demographic assertion in the
+            browser and is then discarded. It is never written to the database, never sent to this console, and cannot be recovered
+            from <code>aadhaarLast4</code>. Mobile numbers are stored masked for the same reason.
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-900 text-base">Issued health accounts</h3>
+            <input id="abha-search" oninput="renderAbhaRegistry()" type="text" placeholder="Filter by name, ABHA number or address&hellip;" class="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg w-72 outline-none focus:border-teal-600" />
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[1140px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">ABHA Number</th>
+                  <th class="py-3 px-3 whitespace-nowrap">ABHA Address</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Holder</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Gender / YOB</th>
+                  <th class="py-3 px-3 whitespace-nowrap">State / District</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Mobile</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Aadhaar</th>
+                  <th class="py-3 px-3 whitespace-nowrap">KYC</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Approved Links</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Created</th>
+                </tr>
+              </thead>
+              <tbody id="admin-abha-table-body" class="divide-y divide-slate-100">
+                <tr><td colspan="10" class="py-6 text-center text-slate-400">Waiting for an admin session&hellip;</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== HIP / HIU REGISTRY ==================== -->
+      <section id="admin-tab-facilities" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">HIP / HIU Registry</h2>
+          <p class="text-xs text-slate-500">
+            Facilities registered against <code>hips/</code>. Suspending a facility is the one destructive lever an admin holds:
+            it takes effect on the very next API call, because the gateway checks status on every request rather than at sign-in.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Facilities</span>
+            <p id="stat-fac-total" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-emerald-600 uppercase">Active</span>
+            <p id="stat-fac-active" class="text-2xl font-extrabold text-emerald-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-red-500 uppercase">Suspended</span>
+            <p id="stat-fac-suspended" class="text-2xl font-extrabold text-red-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">API Keys Issued</span>
+            <p id="stat-fac-keys" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-900 text-base">Registered facilities</h3>
+            <input id="facility-search" oninput="renderFacilityRegistry()" type="text" placeholder="Filter by name, ID or city&hellip;" class="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg w-64 outline-none focus:border-teal-600" />
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[1040px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">Facility ID</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Name</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Role</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Category / City</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Contact</th>
+                  <th class="py-3 px-3 whitespace-nowrap">API Key</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Consents Raised</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Status</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-facilities-table-body" class="divide-y divide-slate-100">
+                <tr><td colspan="9" class="py-6 text-center text-slate-400">Waiting for an admin session&hellip;</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-[11px] text-slate-400 pt-2 border-t border-slate-100">
+            Only the SHA-256 hash of each API key is stored. The prefix shown here is enough to identify a key in a log but not to
+            replay it, and nobody &mdash; including this console &mdash; can recover the key itself. A lost key is rotated, not retrieved.
+          </p>
+        </div>
+      </section>
+
+      <!-- ==================== CARE CONTEXT LINKS ==================== -->
+      <section id="admin-tab-links" class="admin-tab-content hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Linking Activity</h2>
+          <p class="text-xs text-slate-500">
+            Every attempt by a facility to attach a record to a patient's ABHA, reconstructed from the access ledger. A record only
+            becomes fetchable after the patient approves the link <em>and</em> then separately signs a consent that includes it.
+          </p>
+          <p class="text-[11px] text-slate-400 mt-1">
+            This view is built from <code>dataAccessLogs/</code> rather than <code>linkRequests/</code> on purpose: link requests
+            carry the proposed FHIR bundle, and no admin clause exists on that node. The ledger records that a link was proposed
+            without exposing what was inside it.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Links Proposed</span>
+            <p id="stat-link-total" class="text-2xl font-extrabold text-slate-900">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-amber-600 uppercase">Awaiting Decision</span>
+            <p id="stat-link-pending" class="text-2xl font-extrabold text-amber-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-emerald-600 uppercase">Approved</span>
+            <p id="stat-link-linked" class="text-2xl font-extrabold text-emerald-600">0</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-red-500 uppercase">Rejected</span>
+            <p id="stat-link-rejected" class="text-2xl font-extrabold text-red-600">0</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">Linking event history</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[720px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">When</th>
+                  <th class="py-3 px-3 whitespace-nowrap">ABHA (masked)</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Facility</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Event</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Detail</th>
+                </tr>
+              </thead>
+              <tbody id="admin-links-table-body" class="divide-y divide-slate-100">
+                <tr><td colspan="5" class="py-6 text-center text-slate-400">Waiting for an admin session&hellip;</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TERMINOLOGY -->
+      <section id="admin-tab-terminology" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">Terminology Catalog</h2>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[720px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">English Term</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Sanskrit Name</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Stream</th>
+                  <th class="py-3 px-3 whitespace-nowrap">NAMASTE Code</th>
+                  <th class="py-3 px-3 whitespace-nowrap">ICD-11 TM2</th>
+                </tr>
+              </thead>
+              <tbody id="admin-terminology-table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- MAPPINGS -->
+      <section id="admin-tab-mappings" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">Cross-Standard Mappings</h2>
+        <p class="text-xs text-slate-500 -mt-4">NAMASTE &harr; ICD-11 TM2 &harr; ICD-11 MMS &harr; SNOMED CT equivalence table.</p>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[780px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">Term</th>
+                  <th class="py-3 px-3 whitespace-nowrap">NAMASTE</th>
+                  <th class="py-3 px-3 whitespace-nowrap">ICD-11 TM2</th>
+                  <th class="py-3 px-3 whitespace-nowrap">ICD-11 MMS</th>
+                  <th class="py-3 px-3 whitespace-nowrap">SNOMED CT</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Confidence</th>
+                </tr>
+              </thead>
+              <tbody id="admin-mappings-table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- FHIR RESOURCES -->
+      <section id="admin-tab-fhir" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">FHIR Resources</h2>
+        <p class="text-xs text-slate-500 -mt-4">Sample FHIR R4 resources generated by the terminology bridge.</p>
+        <div id="admin-fhir-list" class="grid md:grid-cols-2 gap-4"></div>
+      </section>
+
+      <!-- USERS & ROLES -->
+      <section id="admin-tab-users" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">Users &amp; Roles</h2>
+        <p class="text-xs text-slate-500 -mt-4">Live from the <code>users/</code> RTDB node. Changing a role writes directly to the database, so the rules get the final say.</p>
+
+        <div id="bootstrap-alert" class="hidden p-4 bg-amber-50 border border-amber-300 rounded-2xl flex items-start gap-3">
+          <span class="material-symbols-outlined text-amber-700 text-xl">gpp_maybe</span>
+          <div class="text-xs text-amber-900 leading-relaxed space-y-2">
+            <p>
+              <strong>Admin bootstrap is still open.</strong> <code>meta/adminExists</code> is not set to <code>true</code>, which
+              means the database rules will currently accept a self-assigned <code>admin</code> role from any new account.
+            </p>
+            <button onclick="closeAdminBootstrap()" class="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-lg text-[11px]">
+              Close the bootstrap window now
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[780px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">Name</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Email</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Role</th>
+                  <th class="py-3 px-3 whitespace-nowrap">ABHA / Facility</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Created</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-table-body" class="divide-y divide-slate-100">
+                <tr><td colspan="6" class="py-6 text-center text-slate-400">Loading users&hellip;</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- AUDIT LOGS -->
+      <section id="admin-tab-audit" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">Admin Audit Logs</h2>
+        <p class="text-xs text-slate-500 -mt-4">
+          Append-only trail from <code>auditLogs/</code>. The rules permit creation but never modification or deletion, and each
+          entry must carry the acting admin's own uid &mdash; an admin cannot write an entry in someone else's name.
+        </p>
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[720px] text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <th class="py-3 px-3 whitespace-nowrap">Timestamp</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Admin</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Action</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Target</th>
+                  <th class="py-3 px-3 whitespace-nowrap">Details</th>
+                </tr>
+              </thead>
+              <tbody id="admin-audit-table-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SYSTEM HEALTH -->
+      <section id="admin-tab-health" class="admin-tab-content hidden space-y-6">
+        <h2 class="text-xl font-bold text-slate-900">System Health</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Realtime DB</span>
+            <p id="health-rtdb" class="text-lg font-extrabold text-slate-400">Checking&hellip;</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Auth Session</span>
+            <p id="health-auth" class="text-lg font-extrabold text-slate-400">Checking&hellip;</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Registered Users</span>
+            <p id="health-user-count" class="text-2xl font-extrabold text-slate-900">&mdash;</p>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase">Logged API Calls</span>
+            <p id="health-request-count" class="text-2xl font-extrabold text-slate-900">&mdash;</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">Node reachability under the current session</h3>
+          <p class="text-xs text-slate-500">
+            Each row is a live read attempt against a top-level node. A red row is not necessarily a fault &mdash; some nodes are
+            meant to be unreadable, even by an admin.
+          </p>
+          <div id="health-node-table" class="space-y-2"></div>
+          <button onclick="probeNodes()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs">
+            Re-run reachability probe
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- REQUEST DETAILS MODAL (Inspect) -->
+  <div id="modal-request-details" class="fixed inset-0 modal-backdrop z-[60] hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-3xl w-full p-4 sm:p-6 space-y-4 shadow-2xl relative max-h-[88vh] overflow-y-auto">
+      <button onclick="closeModal('modal-request-details')" class="absolute right-4 top-4 text-slate-400 hover:text-slate-700">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <div class="space-y-1">
+        <span class="px-2.5 py-0.5 rounded bg-slate-100 text-slate-800 text-xs font-bold">API Request Inspector</span>
+        <h3 id="request-details-title" class="text-xl font-bold text-slate-900">REQ-00000</h3>
+        <p id="request-details-sub" class="text-xs text-slate-500">user@example.com &middot; /api/v1/map</p>
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs font-bold text-slate-700">Request Body</p>
+        <pre id="request-details-body" class="code-bg text-emerald-200 text-[11px] p-4 rounded-xl overflow-auto max-h-[38vh] font-mono leading-relaxed"></pre>
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs font-bold text-slate-700">Response Body</p>
+        <pre id="request-details-response" class="code-bg text-teal-200 text-[11px] p-4 rounded-xl overflow-auto max-h-[38vh] font-mono leading-relaxed"></pre>
+      </div>
+      <div class="flex justify-end">
+        <button onclick="closeModal('modal-request-details')" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONSENT ARTEFACT MODAL -->
+  <div id="modal-consent-artifact" class="fixed inset-0 modal-backdrop z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[88vh] overflow-y-auto">
+      <button onclick="closeModal('modal-consent-artifact')" class="absolute right-4 top-4 text-slate-400 hover:text-slate-700">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <div class="space-y-1">
+        <span class="px-2.5 py-0.5 rounded bg-teal-100 text-teal-900 text-xs font-bold">Consent Artefact</span>
+        <h3 id="artifact-title" class="text-xl font-bold text-slate-900">&mdash;</h3>
+        <p id="artifact-sub" class="text-xs text-slate-500">&mdash;</p>
+      </div>
+      <div id="artifact-grid" class="grid grid-cols-2 gap-3 text-xs"></div>
+      <div class="space-y-2">
+        <p class="text-xs font-bold text-slate-700">Artefact as stored</p>
+        <pre id="artifact-json" class="code-bg text-emerald-200 text-[11px] p-4 rounded-xl overflow-x-auto font-mono max-h-64"></pre>
+      </div>
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 leading-relaxed">
+        <strong class="text-slate-800">Payload withheld.</strong> The clinical records this artefact authorises live under
+        <code>disclosures/</code>, which grants read access only to the signing patient and the named facility. This console has no
+        clause there, so the diagnoses covered by this consent are invisible here by construction rather than by convention.
+      </div>
+      <div class="flex justify-end">
+        <button onclick="closeModal('modal-consent-artifact')" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT ENGINE -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA2l2wuVvBJ8i1SBPFIPOGz2JwWDDGjAqk",
+      authDomain: "namaste-1e265.firebaseapp.com",
+      databaseURL: "https://namaste-1e265-default-rtdb.firebaseio.com",
+      projectId: "namaste-1e265",
+      storageBucket: "namaste-1e265.firebasestorage.app",
+      messagingSenderId: "59383012302",
+      appId: "1:59383012302:web:9f2d37b84891bc4225e99f"
+    };
+
+    const SV = () => firebase.database.ServerValue.TIMESTAMP;
+
+    // Same reference dataset the portal (index.html) uses, so the Terminology
+    // and Mappings tabs show real, consistent data.
+    const TERMINOLOGY_DATABASE = [
+      { id: "AY-PRA-01", namasteCode: "NAM-AYU-0077", icd11Tm2Code: "TM2-AYU-R01.1", icd11MmsCode: "CA40", snomedCode: "82272006", termEnglish: "Pratishyaya (Acute Nasopharyngitis / Common Cold)", termSanskrit: "प्रतिश्यायः", ayushStream: "Ayurveda", confidence: 99 },
+      { id: "AY-AML-01", namasteCode: "NAM-AYU-0012", icd11Tm2Code: "TM2-AYU-G01.2", icd11MmsCode: "DA42.0", snomedCode: "62315008", termEnglish: "Amlapitta", termSanskrit: "अम्लपित्तम्", ayushStream: "Ayurveda", confidence: 98 },
+      { id: "AY-JVA-01", namasteCode: "NAM-AYU-0045", icd11Tm2Code: "TM2-AYU-F04.1", icd11MmsCode: "MG26", snomedCode: "386661006", termEnglish: "Jvara (Fever)", termSanskrit: "ज्वरः", ayushStream: "Ayurveda", confidence: 96 },
+      { id: "AY-PRM-01", namasteCode: "NAM-AYU-0089", icd11Tm2Code: "TM2-AYU-M08.3", icd11MmsCode: "5A11", snomedCode: "44054006", termEnglish: "Prameha (Madhumeha)", termSanskrit: "प्रमेहः (मधुमेहः)", ayushStream: "Ayurveda", confidence: 97 },
+      { id: "AY-KAS-01", namasteCode: "NAM-AYU-0102", icd11Tm2Code: "TM2-AYU-R02.5", icd11MmsCode: "MD11", snomedCode: "49727002", termEnglish: "Kasa (Cough)", termSanskrit: "कासः", ayushStream: "Ayurveda", confidence: 95 },
+      { id: "AY-SHW-01", namasteCode: "NAM-AYU-0115", icd11Tm2Code: "TM2-AYU-R05.2", icd11MmsCode: "CA23", snomedCode: "195967001", termEnglish: "Shwasa (Bronchial Asthma)", termSanskrit: "श्वासः", ayushStream: "Ayurveda", confidence: 96 },
+      { id: "AY-SND-01", namasteCode: "NAM-AYU-0130", icd11Tm2Code: "TM2-AYU-J01.8", icd11MmsCode: "FA01", snomedCode: "396275006", termEnglish: "Sandhivata (Osteoarthritis)", termSanskrit: "सन्धिवातः", ayushStream: "Ayurveda", confidence: 94 },
+      { id: "SD-AZH-01", namasteCode: "NAM-SID-0021", icd11Tm2Code: "TM2-SID-G04.1", icd11MmsCode: "DA42.1", snomedCode: "197480006", termEnglish: "Azhal Noy", termSanskrit: "அழல் நோய்", ayushStream: "Siddha", confidence: 94 },
+      { id: "SD-VAT-01", namasteCode: "NAM-SID-0034", icd11Tm2Code: "TM2-SID-J02.4", icd11MmsCode: "FA00", snomedCode: "201834006", termEnglish: "Vatha Noy", termSanskrit: "வாத நோய்", ayushStream: "Siddha", confidence: 93 },
+      { id: "UN-HUM-01", namasteCode: "NAM-UNA-0078", icd11Tm2Code: "TM2-UNA-F02.8", icd11MmsCode: "MG26.1", snomedCode: "386661006", termEnglish: "Humma (Fever)", termSanskrit: "حمى", ayushStream: "Unani", confidence: 95 },
+      { id: "UN-WAJ-01", namasteCode: "NAM-UNA-0092", icd11Tm2Code: "TM2-UNA-J03.1", icd11MmsCode: "FA01.2", snomedCode: "3723001", termEnglish: "Waja-ul-Mafasil", termSanskrit: "وجع المفاصل", ayushStream: "Unani", confidence: 95 }
+    ];
+
+    const FHIR_SAMPLES = [
+      { resourceType: "Condition", id: "cond-ayur-001", code: { coding: [{ system: "http://namaste-portal.gov.in/ayurveda", code: "NAM-AYU-0012", display: "Amlapitta" }, { system: "http://id.who.int/icd/release/11/tm2", code: "TM2-AYU-G01.2", display: "Hyperacidity" }] } },
+      { resourceType: "Condition", id: "cond-ayur-002", code: { coding: [{ system: "http://namaste-portal.gov.in/ayurveda", code: "NAM-AYU-0045", display: "Vataja Jvara" }] } },
+      { resourceType: "Encounter", id: "enc-ayur-88", status: "finished" },
+      { resourceType: "Patient", id: "PAT-9942", name: [{ family: "Sharma", given: ["Rajeev"] }] },
+      { resourceType: "ConceptMap", id: "namaste-to-icd11tm2", title: "AYUSH to ICD-11 TM2 Map" }
+    ];
+
+    const PURPOSE_LABELS = {
+      CAREMGT: "Care Management",
+      BTG: "Break the Glass",
+      PUBHLTH: "Public Health",
+      HPAYMT: "Healthcare Payment",
+      DSRCH: "Disease Research",
+      PATRQT: "Self Requested"
+    };
+
+    const ACTION_LABELS = {
+      FETCH_SUCCESS: "Records fetched",
+      FETCH_DENIED: "Fetch refused",
+      CONSENT_REQUESTED: "Consent requested",
+      CONSENT_GRANTED: "Consent granted",
+      CONSENT_DENIED: "Consent denied",
+      CONSENT_REVOKED: "Consent revoked",
+      LINK_REQUESTED: "Link proposed",
+      LINK_APPROVED: "Link approved",
+      LINK_REJECTED: "Link rejected",
+      DISCOVERY: "Patient discovery"
+    };
+
+    const ACTION_STYLES = {
+      FETCH_SUCCESS: "bg-emerald-100 text-emerald-800",
+      FETCH_DENIED: "bg-red-100 text-red-800",
+      CONSENT_REQUESTED: "bg-amber-100 text-amber-800",
+      CONSENT_GRANTED: "bg-teal-100 text-teal-800",
+      CONSENT_DENIED: "bg-red-100 text-red-800",
+      CONSENT_REVOKED: "bg-slate-200 text-slate-700",
+      LINK_REQUESTED: "bg-slate-100 text-slate-700",
+      LINK_APPROVED: "bg-teal-100 text-teal-800",
+      LINK_REJECTED: "bg-slate-200 text-slate-700",
+      DISCOVERY: "bg-indigo-100 text-indigo-800"
+    };
+
+    // Each row is a live read attempt. Two of these are *supposed* to fail:
+    // that is how the console demonstrates that operator-blindness is enforced
+    // by the rules rather than merely promised by the UI.
+    const NODE_PROBES = [
+      { path: "users",          expect: "allow", why: "Role management needs the user list." },
+      { path: "abha",           expect: "allow", why: "Identity registry. Demographics only, never an Aadhaar number." },
+      { path: "hips",           expect: "allow", why: "Facility registry, including hashed API keys." },
+      { path: "consents",       expect: "allow", why: "Consent artefact metadata, for audit." },
+      { path: "dataAccessLogs", expect: "allow", why: "Append-only access ledger." },
+      { path: "auditLogs",      expect: "allow", why: "Trail of admin actions." },
+      { path: "apiRequests",    expect: "allow", why: "Gateway traffic." },
+      { path: "careContexts",   expect: "deny",  why: "Holds the patient's FHIR bundles. No admin clause, by design." },
+      { path: "linkRequests",   expect: "deny",  why: "Carries proposed FHIR bundles. No admin clause, by design." },
+      { path: "disclosures",    expect: "deny",  why: "Consented payloads. Only the patient and the named facility may read." }
+    ];
+
+    let adminState = {
+      activeTab: "overview",
+      currentUser: null,
+      apiRequests: [],
+      users: [],
+      auditLogs: [],
+      abhaRecords: [],
+      facilities: [],
+      consents: [],
+      accessLogs: [],
+      adminExists: null,
+      consentFilter: "ALL",
+      nodeProbeResults: [],
+      listenersAttached: false,
+      sessionLogged: false,
+      previewMode: false,
+      firebaseApp: null,
+      dbRef: null
+    };
+
+    /* ============================================================
+       HELPERS
+       ============================================================ */
+
+    // The governance tables render strings written by patients and hospitals
+    // (facility names, record titles, consent notes). Interpolating those into
+    // innerHTML unescaped would turn any of those fields into stored XSS aimed
+    // squarely at the admin session, which is the most privileged one there is.
+    function esc(value) {
+      if (value === null || value === undefined) return "";
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function fmtTs(ms) {
+      const n = Number(ms);
+      if (!n || Number.isNaN(n)) return "&mdash;";
+      const d = new Date(n);
+      return esc(d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    }
+
+    function fmtDay(ms) {
+      const n = Number(ms);
+      if (!n || Number.isNaN(n)) return "&mdash;";
+      return esc(new Date(n).toLocaleDateString());
+    }
+
+    // ABHA numbers are 14 digits (XX-XXXX-XXXX-XXXX). The registry shows them in
+    // full because an admin legitimately administers identities; the ledger and
+    // the link views show only the last four, because there an ABHA number is
+    // just a join key and printing it in full would leak identity into logs.
+    function maskAbhaKey(key) {
+      const k = String(key || "");
+      if (k.length < 4) return "&mdash;";
+      return esc("**-****-****-" + k.slice(-4));
+    }
+
+    function fmtAbhaNumber(num) {
+      const d = String(num || "").replace(/[^0-9]/g, "");
+      if (d.length !== 14) return esc(num || "—");
+      return esc(d.slice(0, 2) + "-" + d.slice(2, 6) + "-" + d.slice(6, 10) + "-" + d.slice(10));
+    }
+
+    // esc() is correct for text and for quoted attribute VALUES, but not for a
+    // value that lands inside a JS string inside an attribute: the HTML parser
+    // decodes &#39; back to an apostrophe before JS ever sees it, which would
+    // close the string literal. Every value passed to an inline handler here is
+    // an identifier, so a whitelist is both safe and lossless.
+    function jsId(value) {
+      return String(value === null || value === undefined ? "" : value).replace(/[^A-Za-z0-9_.:@-]/g, "");
+    }
+
+    function shortId(id, keep) {
+      const s = String(id || "");
+      const n = keep || 12;
+      return esc(s.length > n ? s.slice(0, n) + "…" : s);
+    }
+
+    // A consent whose expiry has passed is functionally dead even if the stored
+    // status still reads GRANTED, because the read rule compares expiryAt with
+    // the server clock on every single fetch. The registry shows the effective
+    // state rather than the stale label.
+    function effectiveStatus(c) {
+      if (!c) return "UNKNOWN";
+      if (c.status === "GRANTED" && Number(c.expiryAt) <= Date.now()) return "LAPSED";
+      return c.status || "UNKNOWN";
+    }
+
+    function statusPill(status) {
+      const map = {
+        GRANTED: "st-granted", REQUESTED: "st-requested", DENIED: "st-denied",
+        REVOKED: "st-revoked", EXPIRED: "st-expired", LAPSED: "st-expired",
+        ACTIVE: "st-active", SUSPENDED: "st-suspended",
+        PENDING: "st-requested", LINKED: "st-granted", REJECTED: "st-denied"
+      };
+      const label = status === "LAPSED" ? "Expired" : status;
+      return '<span class="pill ' + (map[status] || "st-revoked") + '">' + esc(label) + "</span>";
+    }
+
+    function emptyRow(tbodyId, cols, message) {
+      const tbody = document.getElementById(tbodyId);
+      if (tbody) tbody.innerHTML = '<tr><td colspan="' + cols + '" class="py-6 text-center text-slate-400">' + message + "</td></tr>";
+    }
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.innerText = value;
+    }
+
+    /* ============================================================
+       FIREBASE WIRING
+       ============================================================ */
+
+    window.addEventListener("DOMContentLoaded", () => {
+      initAdminFirebase();
+      renderAdminTerminology();
+      renderMappings();
+      renderFhirResources();
+      renderAdminAudit();
+      renderNodeProbeTable();
+    });
+
+    function initAdminFirebase() {
+      try {
+        // Reuse the existing app instance if index.html already initialised it
+        // in this browser session (same Firebase project = same Auth session).
+        adminState.firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+        adminState.dbRef = firebase.database().ref();
+
+        firebase.auth().onAuthStateChanged(async (user) => {
+          if (!user) {
+            detachAdminListeners();
+            showAdminLoginForms();
+            refreshBootstrapNotice();
+            return;
+          }
+          try {
+            const snap = await adminState.dbRef.child("users/" + user.uid).once("value");
+            const profile = snap.exists() ? snap.val() : null;
+            const role = profile && profile.role ? profile.role : "user";
+
+            if (role === "admin") {
+              adminState.currentUser = {
+                email: user.email,
+                uid: user.uid,
+                role: "admin",
+                name: (profile && profile.displayName) || (user.email || "admin").split("@")[0]
+              };
+              grantAdminAccess();
+            } else {
+              denyAdminAccess(user.email, role);
+            }
+          } catch (err) {
+            console.error("Role lookup failed:", err);
+            denyAdminAccess(user.email, "unknown");
+          }
+        });
+
+        // Firebase's built-in connection-state path, used for System Health.
+        firebase.database().ref(".info/connected").on("value", (snap) => {
+          setRtdbStatus(snap.val() === true);
+        });
+
+        // meta/adminExists is world-readable on purpose: the sign-up form has to
+        // be able to tell an anonymous visitor whether the bootstrap window is
+        // still open before they waste time filling it in.
+        adminState.dbRef.child("meta/adminExists").on("value", (snap) => {
+          adminState.adminExists = snap.val() === true;
+          refreshBootstrapNotice();
+        }, (err) => console.warn("meta/adminExists read failed:", err.message));
+
+      } catch (err) {
+        console.warn("Admin Firebase init error:", err);
+      }
+    }
+
+    // Listeners are attached only once the role check has passed. Attaching them
+    // at page load — as the first version of this console did — races against
+    // Firebase restoring the auth session: the read is refused, and a refused
+    // RTDB listener is cancelled permanently rather than retried, so the console
+    // would sit empty even after a successful sign-in.
+    function attachAdminListeners() {
+      if (adminState.listenersAttached || !adminState.dbRef) return;
+      adminState.listenersAttached = true;
+      const db = adminState.dbRef;
+
+      db.child("apiRequests").limitToLast(200).on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        adminState.apiRequests = Object.values(data).sort((a, b) => (b.__ts || 0) - (a.__ts || 0));
+        renderOverviewRequests();
+        renderFullRequestsTable();
+        renderLiveTraffic();
+        updateOverviewStats();
+        updateHealthCounts();
+      }, (err) => console.error("apiRequests listener error (check DB rules):", err));
+
+      db.child("users").on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        adminState.users = Object.entries(data).map(([uid, profile]) => Object.assign({ uid: uid }, profile));
+        renderUsersAndRoles();
+        updateHealthCounts();
+      }, (err) => console.error("users listener error (check DB rules):", err));
+
+      db.child("abha").on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        adminState.abhaRecords = Object.entries(data).map(([abhaKey, rec]) => Object.assign({ abhaKey: abhaKey }, rec));
+        renderAbhaRegistry();
+        updateAbdmStats();
+      }, (err) => console.error("abha listener error:", err));
+
+      db.child("hips").on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        adminState.facilities = Object.entries(data).map(([hipId, rec]) => Object.assign({}, rec, { hipId: rec.hipId || hipId }));
+        renderFacilityRegistry();
+        updateAbdmStats();
+      }, (err) => console.error("hips listener error:", err));
+
+      db.child("consents").orderByChild("createdAt").limitToLast(300).on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        adminState.consents = Object.entries(data)
+          .map(([cid, rec]) => Object.assign({}, rec, { consentId: rec.consentId || cid }))
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        renderConsentRegistry();
+        renderFacilityRegistry();
+        updateAbdmStats();
+      }, (err) => console.error("consents listener error:", err));
+
+      db.child("dataAccessLogs").on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        const flat = [];
+        Object.keys(data).forEach((abhaKey) => {
+          const logs = data[abhaKey] || {};
+          Object.keys(logs).forEach((logId) => {
+            flat.push(Object.assign({ abhaKey: abhaKey, logId: logId }, logs[logId]));
+          });
+        });
+        adminState.accessLogs = flat.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        renderAccessLedger();
+        renderLinkingActivity();
+        renderAbhaRegistry();
+        updateAbdmStats();
+      }, (err) => console.error("dataAccessLogs listener error:", err));
+
+      db.child("auditLogs").orderByChild("ts").limitToLast(200).on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        adminState.auditLogs = Object.values(data).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        renderAdminAudit();
+      }, (err) => console.error("auditLogs listener error:", err));
+
+      probeNodes();
+    }
+
+    function detachAdminListeners() {
+      if (!adminState.dbRef || !adminState.listenersAttached) return;
+      ["apiRequests", "users", "abha", "hips", "consents", "dataAccessLogs", "auditLogs"].forEach((node) => {
+        adminState.dbRef.child(node).off();
+      });
+      adminState.listenersAttached = false;
+      adminState.sessionLogged = false;
+      adminState.apiRequests = [];
+      adminState.users = [];
+      adminState.abhaRecords = [];
+      adminState.facilities = [];
+      adminState.consents = [];
+      adminState.accessLogs = [];
+      adminState.auditLogs = [];
+    }
+
+    function setRtdbStatus(connected) {
+      const dot = document.getElementById("rtdb-status-dot");
+      const text = document.getElementById("rtdb-status-text");
+      const pill = document.getElementById("rtdb-status-pill");
+      const health = document.getElementById("health-rtdb");
+      if (text) text.innerText = connected ? "Realtime: Connected" : "Realtime: Disconnected";
+      if (pill) pill.className = "flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full font-medium shrink-0 " + (connected ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800");
+      if (dot) dot.className = "w-2 h-2 rounded-full " + (connected ? "bg-emerald-500 animate-ping" : "bg-red-500");
+      if (health) {
+        health.innerText = connected ? "Connected" : "Disconnected";
+        health.className = "text-lg font-extrabold " + (connected ? "text-emerald-600" : "text-red-600");
+      }
+    }
+
+    /* ============================================================
+       AUTH & ADMIN BOOTSTRAP
+       ============================================================ */
+
+    function grantAdminAccess() {
+      document.getElementById("auth-guard-modal").classList.add("hidden");
+      document.getElementById("access-denied-box").classList.add("hidden");
+      document.getElementById("admin-auth-forms").classList.remove("hidden");
+      setText("admin-user-display", adminState.currentUser.name);
+      setText("admin-user-role", "Role: " + String(adminState.currentUser.role).toUpperCase());
+      adminState.previewMode = false;
+      attachAdminListeners();
+      refreshBootstrapNotice();
+      if (!adminState.sessionLogged) {
+        adminState.sessionLogged = true;
+        writeAdminAudit("ADMIN_SESSION_OPENED", "admin.html", "Console opened by " + (adminState.currentUser.email || adminState.currentUser.uid));
+      }
+    }
+
+    function denyAdminAccess(email, role) {
+      detachAdminListeners();
+      document.getElementById("auth-guard-modal").classList.remove("hidden");
+      document.getElementById("admin-auth-forms").classList.add("hidden");
+      document.getElementById("access-denied-box").classList.remove("hidden");
+      setText("denied-user-email", email || "(unknown)");
+      setText("denied-user-role", String(role || "user").toUpperCase());
+    }
+
+    function showAdminLoginForms() {
+      document.getElementById("auth-guard-modal").classList.remove("hidden");
+      document.getElementById("access-denied-box").classList.add("hidden");
+      document.getElementById("admin-auth-forms").classList.remove("hidden");
+    }
+
+    function showAdminAuthError(msg) {
+      const el = document.getElementById("admin-auth-error");
+      if (!el) return;
+      el.innerText = msg;
+      el.classList.remove("hidden");
+    }
+
+    // The escalation hole this closes: the role validator accepts a self-assigned
+    // 'admin' only while meta/adminExists is unset. Leave that flag unset and any
+    // visitor can register themselves as an admin forever, which is exactly what
+    // the original version of this page allowed.
+    function refreshBootstrapNotice() {
+      const open = adminState.adminExists !== true;
+      const openBox = document.getElementById("admin-bootstrap-open");
+      const closedBox = document.getElementById("admin-bootstrap-closed");
+      if (openBox) openBox.classList.toggle("hidden", !open);
+      if (closedBox) closedBox.classList.toggle("hidden", open);
+
+      const alertBox = document.getElementById("bootstrap-alert");
+      const signedInAdmin = !!(adminState.currentUser && adminState.currentUser.uid);
+      if (alertBox) alertBox.classList.toggle("hidden", !(open && signedInAdmin));
+
+      const banner = document.getElementById("rules-warning-banner");
+      const bannerText = document.getElementById("rules-warning-text");
+      if (banner && bannerText) {
+        if (open && signedInAdmin) {
+          bannerText.innerText = "Admin bootstrap is still open — any new account can self-assign the admin role until you close it (Users & Roles tab).";
+          banner.classList.remove("hidden");
+        } else {
+          banner.classList.add("hidden");
+        }
+      }
+    }
+
+    async function closeAdminBootstrap() {
+      if (!adminState.dbRef) return;
+      if (!firebase.auth().currentUser) {
+        alert("Preview mode cannot write to the database. Sign in as a real admin first.");
+        return;
+      }
+      if (!confirm("Close the admin bootstrap window?\n\nAfter this, no account can self-assign the admin role — new admins must be promoted from this tab by an existing admin.")) return;
+      try {
+        await adminState.dbRef.child("meta/adminExists").set(true);
+        await writeAdminAudit("BOOTSTRAP_CLOSED", "meta/adminExists", "Self-service admin registration disabled");
+      } catch (err) {
+        alert("Could not close the bootstrap window: " + err.message);
+      }
+    }
+
+    function switchAdminAuthTab(type) {
+      if (type === "signin") {
+        document.getElementById("form-admin-signin").classList.remove("hidden");
+        document.getElementById("form-admin-signup").classList.add("hidden");
+        document.getElementById("tab-admin-signin").className = "flex-1 py-2 font-bold text-xs border-b-2 border-slate-900 text-slate-900";
+        document.getElementById("tab-admin-signup").className = "flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700";
+      } else {
+        document.getElementById("form-admin-signin").classList.add("hidden");
+        document.getElementById("form-admin-signup").classList.remove("hidden");
+        document.getElementById("tab-admin-signup").className = "flex-1 py-2 font-bold text-xs border-b-2 border-slate-900 text-slate-900";
+        document.getElementById("tab-admin-signin").className = "flex-1 py-2 font-bold text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-700";
+        refreshBootstrapNotice();
+      }
+    }
+
+    async function handleAdminSignIn(e) {
+      e.preventDefault();
+      const email = document.getElementById("admin-signin-email").value;
+      const pass = document.getElementById("admin-signin-password").value;
+      try {
+        // Signs in against the SAME Firebase Auth project index.html uses. The
+        // onAuthStateChanged handler then looks up users/{uid}.role and decides.
+        await firebase.auth().signInWithEmailAndPassword(email, pass);
+      } catch (err) {
+        showAdminAuthError("Sign In Error: " + err.message);
+      }
+    }
+
+    async function handleAdminSignUp(e) {
+      e.preventDefault();
+      const name = document.getElementById("admin-signup-name").value;
+      const email = document.getElementById("admin-signup-email").value;
+      const pass = document.getElementById("admin-signup-password").value;
+
+      if (adminState.adminExists === true) {
+        showAdminAuthError("An admin already exists for this project. The database will reject a self-assigned admin role — ask an existing admin to promote your account.");
+        return;
+      }
+
+      try {
+        const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
+        await adminState.dbRef.child("users/" + cred.user.uid).set({
+          displayName: String(name).slice(0, 120),   // rules cap: 120
+          email: String(email).slice(0, 254),        // rules cap: 254
+          role: "admin",
+          createdAt: SV()
+        });
+        // Order matters. This write is admin-only, so it can only succeed after
+        // the profile above has landed — and once it lands, the role validator
+        // stops accepting self-assigned admin roles from anyone else.
+        await adminState.dbRef.child("meta/adminExists").set(true);
+        await writeAdminAudit("ADMIN_BOOTSTRAPPED", "users/" + cred.user.uid, "First admin registered: " + email);
+      } catch (err) {
+        showAdminAuthError("Sign Up Error: " + err.message);
+      }
+    }
+
+    function enableDemoAdminSession() {
+      // Local-only chrome preview. It deliberately does not touch Firebase Auth,
+      // so every rule-protected read still fails and the tables stay empty.
+      adminState.currentUser = null;
+      adminState.previewMode = true;
+      setText("admin-user-display", "Layout Preview");
+      setText("admin-user-role", "No database session");
+      document.getElementById("auth-guard-modal").classList.add("hidden");
+      const banner = document.getElementById("rules-warning-banner");
+      const bannerText = document.getElementById("rules-warning-text");
+      if (banner && bannerText) {
+        bannerText.innerText = "Layout preview only — you are not signed in, so every governance table below will stay empty. That is the security rules working, not a bug.";
+        banner.classList.remove("hidden");
+      }
+      emptyRow("admin-consents-table-body", 10, "No admin session — <code>consents/</code> is unreadable.");
+      emptyRow("admin-access-table-body", 8, "No admin session — <code>dataAccessLogs/</code> is unreadable.");
+      emptyRow("admin-abha-table-body", 10, "No admin session — <code>abha/</code> is unreadable.");
+      emptyRow("admin-facilities-table-body", 9, "No admin session — <code>hips/</code> is unreadable.");
+      emptyRow("admin-links-table-body", 5, "No admin session — the ledger is unreadable.");
+      emptyRow("admin-users-table-body", 6, "No admin session — <code>users/</code> is unreadable.");
+    }
+
+    function handleAdminLogout() {
+      adminState.currentUser = null;
+      adminState.previewMode = false;
+      detachAdminListeners();
+      firebase.auth().signOut().catch((err) => console.error("Logout failed:", err));
+      setText("admin-user-display", "");
+      setText("admin-user-role", "");
+      const banner = document.getElementById("rules-warning-banner");
+      if (banner) banner.classList.add("hidden");
+      showAdminLoginForms();
+    }
+
+    function writeAdminAudit(action, target, detail) {
+      const user = firebase.auth().currentUser;
+      if (!user || !adminState.dbRef) return Promise.resolve();
+      const entry = {
+        action: String(action).slice(0, 60),
+        actorUid: user.uid,
+        ts: SV()
+      };
+      if (user.email) entry.actorEmail = String(user.email).slice(0, 254);
+      if (target) entry.target = String(target).slice(0, 140);
+      if (detail) entry.detail = String(detail).slice(0, 300);
+      return adminState.dbRef.child("auditLogs").push(entry).catch((err) => {
+        console.error("Audit write failed (this should never be silent):", err);
+      });
+    }
+
+    /* ============================================================
+       TAB NAVIGATION
+       ============================================================ */
+
+    const ADMIN_TAB_TITLES = {
+      overview: "Overview Dashboard",
+      requests: "Live API Request Monitor",
+      traffic: "Live Traffic",
+      consents: "Consent Registry",
+      access: "Data Access Ledger",
+      abha: "ABHA Registry",
+      facilities: "HIP / HIU Registry",
+      links: "Linking Activity",
+      terminology: "Terminology Catalog",
+      mappings: "Cross-Standard Mappings",
+      fhir: "FHIR Resources",
+      users: "Users & Roles",
+      audit: "Admin Audit Logs",
+      health: "System Health"
+    };
+
+    /* ------------------------------------------------------------------
+     * RESPONSIVE SIDEBAR
+     * The sidebar is position:fixed at every breakpoint. Below md it sits
+     * off-canvas (-translate-x-full) and is revealed on demand; from md up
+     * `md:translate-x-0` wins inside the media query and the content wrapper's
+     * `md:ml-sidebar-width` reserves the space, so toggling is a no-op there.
+     * These are function declarations, not const arrows, because the inline
+     * onclick attributes resolve against window.
+     * The scroll lock uses an inline style rather than a Tailwind class: the
+     * CDN build only generates classes it can see in the source, so a class
+     * added purely from JS is not guaranteed to exist.
+     * ---------------------------------------------------------------- */
+    function openSidebar() {
+      const bar = document.getElementById("admin-sidebar");
+      const back = document.getElementById("sidebar-backdrop");
+      if (bar) bar.classList.remove("-translate-x-full");
+      if (back) back.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeSidebar() {
+      const bar = document.getElementById("admin-sidebar");
+      const back = document.getElementById("sidebar-backdrop");
+      if (bar) bar.classList.add("-translate-x-full");
+      if (back) back.classList.add("hidden");
+      document.body.style.overflow = "";
+    }
+
+    function toggleSidebar() {
+      const bar = document.getElementById("admin-sidebar");
+      if (!bar) return;
+      if (bar.classList.contains("-translate-x-full")) openSidebar();
+      else closeSidebar();
+    }
+
+    function switchAdminTab(tabId) {
+      adminState.activeTab = tabId;
+      document.querySelectorAll(".admin-tab-content").forEach((el) => el.classList.add("hidden"));
+      const target = document.getElementById("admin-tab-" + tabId);
+      if (target) target.classList.remove("hidden");
+
+      document.querySelectorAll(".admin-nav-item").forEach((el) => {
+        el.classList.remove("bg-teal-50", "text-teal-900", "font-bold");
+        el.classList.add("text-slate-700", "font-medium");
+      });
+      const activeNav = document.getElementById("nav-admin-" + tabId);
+      if (activeNav) {
+        activeNav.classList.add("bg-teal-50", "text-teal-900", "font-bold");
+        activeNav.classList.remove("text-slate-700", "font-medium");
+      }
+
+      const titleEl = document.getElementById("admin-page-title");
+      if (titleEl && ADMIN_TAB_TITLES[tabId]) titleEl.innerText = ADMIN_TAB_TITLES[tabId];
+
+      if (tabId === "traffic") renderLiveTraffic();
+      if (tabId === "users") renderUsersAndRoles();
+      if (tabId === "consents") renderConsentRegistry();
+      if (tabId === "access") renderAccessLedger();
+      if (tabId === "abha") renderAbhaRegistry();
+      if (tabId === "facilities") renderFacilityRegistry();
+      if (tabId === "links") renderLinkingActivity();
+      if (tabId === "health") { updateHealthCounts(); renderNodeProbeTable(); }
+
+      // On mobile the nav overlays the content, so dismiss it after navigating.
+      closeSidebar();
+    }
+
+    /* ============================================================
+       CONSENT REGISTRY
+       ============================================================ */
+
+    function setConsentFilter(filter) {
+      adminState.consentFilter = filter;
+      ["ALL", "REQUESTED", "GRANTED", "DENIED", "REVOKED"].forEach((f) => {
+        const btn = document.getElementById("cf-" + f);
+        if (!btn) return;
+        if (f === filter) {
+          btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition-colors";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors";
+        }
+      });
+      renderConsentRegistry();
+    }
+
+    function consentMatchesFilter(c, filter) {
+      const eff = effectiveStatus(c);
+      if (filter === "ALL") return true;
+      // A lapsed grant is grouped with the dead consents, not the live ones,
+      // because that is how the read rule treats it.
+      if (filter === "GRANTED") return eff === "GRANTED";
+      if (filter === "REVOKED") return eff === "REVOKED" || eff === "LAPSED" || eff === "EXPIRED";
+      return eff === filter;
+    }
+
+    function renderConsentRegistry() {
+      const tbody = document.getElementById("admin-consents-table-body");
+      if (!tbody) return;
+
+      const counts = { ALL: 0, REQUESTED: 0, GRANTED: 0, DENIED: 0, REVOKED: 0 };
+      adminState.consents.forEach((c) => {
+        counts.ALL++;
+        ["REQUESTED", "GRANTED", "DENIED", "REVOKED"].forEach((f) => {
+          if (consentMatchesFilter(c, f)) counts[f]++;
+        });
+      });
+      Object.keys(counts).forEach((k) => setText("cf-count-" + k, counts[k]));
+
+      const badge = document.getElementById("nav-consent-badge");
+      if (badge) {
+        if (counts.REQUESTED > 0) {
+          badge.classList.remove("hidden");
+          badge.innerText = String(counts.REQUESTED);
+        } else {
+          badge.classList.add("hidden");
+        }
+      }
+
+      const term = (document.getElementById("consent-search").value || "").trim().toLowerCase();
+      const rows = adminState.consents.filter((c) => {
+        if (!consentMatchesFilter(c, adminState.consentFilter)) return false;
+        if (!term) return true;
+        return [c.abhaAddress, c.hipName, c.hipId, c.consentId, c.purposeCode, c.hiTypes]
+          .some((v) => String(v || "").toLowerCase().includes(term));
+      });
+
+      if (!rows.length) {
+        emptyRow("admin-consents-table-body", 10,
+          adminState.consents.length
+            ? "No consent requests match this filter."
+            : "No consent requests yet. Raise one from the hospital portal in <code>index.html</code>.");
+        return;
+      }
+
+      tbody.innerHTML = rows.map((c) => {
+        const eff = effectiveStatus(c);
+        const hiList = String(c.hiTypes || "").split(",").filter(Boolean);
+        const hiCells = hiList.slice(0, 2).map((h) => '<span class="pill bg-slate-100 text-slate-700">' + esc(h) + "</span>").join(" ");
+        const hiMore = hiList.length > 2 ? ' <span class="text-[10px] text-slate-400 font-semibold">+' + (hiList.length - 2) + "</span>" : "";
+        const expiryClass = eff === "GRANTED" ? "text-slate-700" : "text-slate-400";
+        return "" +
+          "<tr class='hover:bg-slate-50 transition-colors'>" +
+            "<td class='py-3 px-4 text-slate-500 whitespace-nowrap'>" + fmtTs(c.createdAt) + "</td>" +
+            "<td class='py-3 px-4 font-mono text-slate-900'>" + esc(c.abhaAddress || "—") + "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<p class='font-semibold text-slate-900'>" + esc(c.hipName || "—") + "</p>" +
+              "<p class='font-mono text-[10px] text-slate-400'>" + esc(c.hipId || "") + "</p>" +
+            "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<span class='pill bg-indigo-100 text-indigo-800'>" + esc(c.purposeCode || "—") + "</span>" +
+              "<p class='text-[10px] text-slate-400 mt-0.5'>" + esc(c.purposeText || PURPOSE_LABELS[c.purposeCode] || "") + "</p>" +
+            "</td>" +
+            "<td class='py-3 px-4'>" + (hiCells || "<span class='text-slate-400'>—</span>") + hiMore + "</td>" +
+            "<td class='py-3 px-4 text-slate-500 whitespace-nowrap font-mono text-[10px]'>" + esc(c.dateFrom || "?") + " → " + esc(c.dateTo || "?") + "</td>" +
+            "<td class='py-3 px-4'>" + statusPill(eff) + "</td>" +
+            "<td class='py-3 px-4 whitespace-nowrap " + expiryClass + "'>" + fmtTs(c.expiryAt) + "</td>" +
+            "<td class='py-3 px-4 text-center font-bold text-slate-900'>" + (typeof c.disclosedCount === "number" ? c.disclosedCount : "—") + "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<button onclick=\"openConsentArtifact('" + jsId(c.consentId) + "')\" class='px-2.5 py-1 bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 rounded font-bold text-[10px] transition-colors'>Artefact</button>" +
+            "</td>" +
+          "</tr>";
+      }).join("");
+    }
+
+    function openConsentArtifact(cid) {
+      const c = adminState.consents.find((x) => x.consentId === cid);
+      if (!c) return;
+      const eff = effectiveStatus(c);
+
+      setText("artifact-title", c.consentId);
+      const sub = document.getElementById("artifact-sub");
+      if (sub) sub.innerHTML = esc(c.hipName || "Unknown facility") + " &rarr; " + esc(c.abhaAddress || "unknown patient") + " &middot; " + statusPill(eff);
+
+      const field = (label, value, mono) =>
+        "<div>" +
+          "<span class='block text-[10px] font-bold text-slate-400 uppercase tracking-wide'>" + esc(label) + "</span>" +
+          "<span class='block text-slate-900 " + (mono ? "font-mono text-[11px] break-all" : "font-semibold") + "'>" + value + "</span>" +
+        "</div>";
+
+      const grid = document.getElementById("artifact-grid");
+      if (grid) {
+        grid.innerHTML =
+          field("Purpose", esc(c.purposeCode || "—") + " &middot; " + esc(c.purposeText || "")) +
+          field("HI Types", String(c.hiTypes || "").split(",").filter(Boolean).map(esc).join(", ") || "—") +
+          field("Record window", esc(c.dateFrom || "?") + " → " + esc(c.dateTo || "?"), true) +
+          field("Raised", fmtTs(c.createdAt)) +
+          field("Decided", fmtTs(c.decidedAt)) +
+          field("Expires", fmtTs(c.expiryAt)) +
+          field("Revoked", fmtTs(c.revokedAt)) +
+          field("Records in scope", typeof c.disclosedCount === "number" ? String(c.disclosedCount) : "—") +
+          field("Facility ID", esc(c.hipId || "—"), true) +
+          field("ABHA number", maskAbhaKey(c.abhaKey), true) +
+          field("Requester UID", shortId(c.requesterUid, 18), true) +
+          field("Patient UID", shortId(c.patientUid, 18), true) +
+          field("Artefact signature (SHA-256)", c.artifactSignature ? esc(c.artifactSignature) : "<span class='text-slate-400'>not signed — consent was never granted</span>", true) +
+          (c.requestNote ? field("Requester note", esc(c.requestNote)) : "");
+      }
+
+      // Deliberately metadata only. The disclosure payload that this artefact
+      // authorises lives at disclosures/{consentId}, which no admin can read.
+      const json = document.getElementById("artifact-json");
+      if (json) {
+        const view = {};
+        Object.keys(c).sort().forEach((k) => { if (k.indexOf("__") !== 0) view[k] = c[k]; });
+        json.innerText = JSON.stringify(view, null, 2);
+      }
+
+      document.getElementById("modal-consent-artifact").classList.remove("hidden");
+    }
+
+    /* ============================================================
+       DATA ACCESS LEDGER
+       ============================================================ */
+
+    function renderAccessLedger() {
+      const tbody = document.getElementById("admin-access-table-body");
+      if (!tbody) return;
+
+      const logs = adminState.accessLogs;
+      const success = logs.filter((l) => l.action === "FETCH_SUCCESS");
+      const denied = logs.filter((l) => l.action === "FETCH_DENIED" || l.action === "CONSENT_DENIED");
+      const records = success.reduce((sum, l) => sum + (Number(l.recordCount) || 0), 0);
+      setText("stat-access-total", logs.length);
+      setText("stat-access-success", success.length);
+      setText("stat-access-denied", denied.length);
+      setText("stat-access-records", records);
+
+      const actionFilter = (document.getElementById("access-action-filter").value || "ALL");
+      const term = (document.getElementById("access-search").value || "").trim().toLowerCase();
+
+      const rows = logs.filter((l) => {
+        if (actionFilter !== "ALL" && l.action !== actionFilter) return false;
+        if (!term) return true;
+        return [l.abhaKey, l.actorLabel, l.hipId, l.consentId, l.purposeCode, l.detail, l.action]
+          .some((v) => String(v || "").toLowerCase().includes(term));
+      }).slice(0, 400);
+
+      if (!rows.length) {
+        emptyRow("admin-access-table-body", 8,
+          logs.length ? "No ledger entries match this filter."
+                      : "The ledger is empty. Every discovery, consent decision and record fetch writes a row here.");
+        return;
+      }
+
+      tbody.innerHTML = rows.map((l) => {
+        const style = ACTION_STYLES[l.action] || "bg-slate-100 text-slate-700";
+        const label = ACTION_LABELS[l.action] || l.action || "—";
+        const hasArtifact = l.consentId && l.consentId !== "-" && adminState.consents.some((c) => c.consentId === l.consentId);
+        const consentCell = (l.consentId && l.consentId !== "-")
+          ? (hasArtifact
+              ? "<button onclick=\"openConsentArtifact('" + jsId(l.consentId) + "')\" class='font-mono text-[10px] text-teal-700 hover:text-teal-900 hover:underline font-bold'>" + shortId(l.consentId, 16) + "</button>"
+              : "<span class='font-mono text-[10px] text-slate-400'>" + shortId(l.consentId, 16) + "</span>")
+          : "<span class='text-slate-300'>none</span>";
+        return "" +
+          "<tr class='hover:bg-slate-50 transition-colors'>" +
+            "<td class='py-3 px-4 text-slate-500 whitespace-nowrap'>" + fmtTs(l.ts) + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-slate-600 whitespace-nowrap'>" + maskAbhaKey(l.abhaKey) + "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<p class='font-semibold text-slate-900'>" + esc(l.actorLabel || "—") + "</p>" +
+              "<p class='font-mono text-[10px] text-slate-400'>" + esc(l.hipId || shortId(l.actorUid, 14)) + "</p>" +
+            "</td>" +
+            "<td class='py-3 px-4'><span class='pill " + style + "'>" + esc(label) + "</span></td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-slate-600'>" + esc(l.purposeCode || "—") + "</td>" +
+            "<td class='py-3 px-4 text-center font-bold text-slate-900'>" + (typeof l.recordCount === "number" ? l.recordCount : "—") + "</td>" +
+            "<td class='py-3 px-4'>" + consentCell + "</td>" +
+            "<td class='py-3 px-4 text-slate-500 max-w-xs'>" + esc(l.detail || "—") + "</td>" +
+          "</tr>";
+      }).join("");
+    }
+
+    /* ============================================================
+       ABHA REGISTRY
+       ============================================================ */
+
+    function renderAbhaRegistry() {
+      const tbody = document.getElementById("admin-abha-table-body");
+      if (!tbody) return;
+
+      // careContexts/ is unreadable here by design, so "approved links" is
+      // derived from the append-only ledger rather than by counting records.
+      const linkCounts = {};
+      adminState.accessLogs.forEach((l) => {
+        if (l.action === "LINK_APPROVED") linkCounts[l.abhaKey] = (linkCounts[l.abhaKey] || 0) + 1;
+      });
+
+      const term = (document.getElementById("abha-search").value || "").trim().toLowerCase();
+      const rows = adminState.abhaRecords
+        .filter((r) => {
+          if (!term) return true;
+          return [r.abhaNumber, r.abhaAddress, r.fullName, r.stateName, r.districtName]
+            .some((v) => String(v || "").toLowerCase().includes(term));
+        })
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      if (!rows.length) {
+        emptyRow("admin-abha-table-body", 10,
+          adminState.abhaRecords.length ? "No ABHA records match that search."
+                                        : "No ABHA numbers issued yet. Create one from the ABHA tab in <code>index.html</code>.");
+        return;
+      }
+
+      tbody.innerHTML = rows.map((r) => {
+        const links = linkCounts[r.abhaKey] || 0;
+        return "" +
+          "<tr class='hover:bg-slate-50 transition-colors'>" +
+            "<td class='py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap'>" + fmtAbhaNumber(r.abhaNumber || r.abhaKey) + "</td>" +
+            "<td class='py-3 px-4 font-mono text-teal-700'>" + esc(r.abhaAddress || "—") + "</td>" +
+            "<td class='py-3 px-4 font-semibold text-slate-900'>" + esc(r.fullName || "—") + "</td>" +
+            "<td class='py-3 px-4 text-slate-600 whitespace-nowrap'>" + esc(r.gender || "?") + " / " + esc(r.yearOfBirth || "?") + "</td>" +
+            "<td class='py-3 px-4 text-slate-600'>" + esc(r.stateName || "—") + (r.districtName ? " <span class='text-slate-400'>/ " + esc(r.districtName) + "</span>" : "") + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-slate-500'>" + esc(r.mobileMasked || "—") + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-slate-500'>" + (r.aadhaarLast4 ? "XXXX-XXXX-" + esc(r.aadhaarLast4) : "—") + "</td>" +
+            "<td class='py-3 px-4'>" +
+              (r.kycVerified
+                ? "<span class='pill st-granted'>" + esc(r.kycMethod || "VERIFIED") + "</span>"
+                : "<span class='pill st-requested'>Unverified</span>") +
+            "</td>" +
+            "<td class='py-3 px-4 text-center'>" +
+              (links ? "<span class='font-bold text-slate-900'>" + links + "</span>"
+                     : "<span class='text-slate-300'>0</span>") +
+            "</td>" +
+            "<td class='py-3 px-4 text-slate-500 whitespace-nowrap'>" + fmtDay(r.createdAt) + "</td>" +
+          "</tr>";
+      }).join("");
+    }
+
+    /* ============================================================
+       HIP / HIU REGISTRY
+       ============================================================ */
+
+    function renderFacilityRegistry() {
+      const tbody = document.getElementById("admin-facilities-table-body");
+      if (!tbody) return;
+
+      const facs = adminState.facilities;
+      const active = facs.filter((f) => f.status !== "SUSPENDED");
+      setText("stat-fac-total", facs.length);
+      setText("stat-fac-active", active.length);
+      setText("stat-fac-suspended", facs.length - active.length);
+      setText("stat-fac-keys", facs.filter((f) => !!f.apiKeyHash).length);
+
+      const consentCounts = {};
+      adminState.consents.forEach((c) => {
+        if (c.hipId) consentCounts[c.hipId] = (consentCounts[c.hipId] || 0) + 1;
+      });
+
+      const term = (document.getElementById("facility-search").value || "").trim().toLowerCase();
+      const rows = facs
+        .filter((f) => {
+          if (!term) return true;
+          return [f.hipId, f.name, f.city, f.category, f.contactEmail, f.hfrId]
+            .some((v) => String(v || "").toLowerCase().includes(term));
+        })
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      if (!rows.length) {
+        emptyRow("admin-facilities-table-body", 9,
+          facs.length ? "No facilities match that search."
+                      : "No facilities registered. Register one from the Hospital portal in <code>index.html</code>.");
+        return;
+      }
+
+      tbody.innerHTML = rows.map((f) => {
+        const status = f.status === "SUSPENDED" ? "SUSPENDED" : "ACTIVE";
+        const next = status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+        const btnClass = status === "ACTIVE"
+          ? "bg-red-50 hover:bg-red-600 hover:text-white text-red-700 border-red-200"
+          : "bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border-emerald-200";
+        const roleStyle = f.type === "HIU" ? "bg-indigo-100 text-indigo-800"
+                        : f.type === "HIP_HIU" ? "bg-purple-100 text-purple-800"
+                        : "bg-teal-100 text-teal-800";
+        const roleLabel = f.type === "HIP_HIU" ? "HIP + HIU" : (f.type || "HIP");
+        return "" +
+          "<tr class='hover:bg-slate-50 transition-colors'>" +
+            "<td class='py-3 px-4 font-mono font-bold text-slate-900 whitespace-nowrap'>" + esc(f.hipId || "—") + "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<p class='font-semibold text-slate-900'>" + esc(f.name || "—") + "</p>" +
+              (f.hfrId ? "<p class='font-mono text-[10px] text-slate-400'>HFR " + esc(f.hfrId) + "</p>" : "") +
+            "</td>" +
+            "<td class='py-3 px-4'><span class='pill " + roleStyle + "'>" + esc(roleLabel) + "</span></td>" +
+            "<td class='py-3 px-4 text-slate-600'>" + esc(f.category || "—") + (f.city ? " <span class='text-slate-400'>/ " + esc(f.city) + "</span>" : "") + "</td>" +
+            "<td class='py-3 px-4 text-slate-500 text-[11px]'>" + esc(f.contactEmail || "—") + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-slate-500'>" +
+              (f.apiKeyPrefix
+                ? esc(f.apiKeyPrefix) + "&hellip;<p class='text-slate-400 not-italic'>hashed " + fmtDay(f.apiKeyIssuedAt) + "</p>"
+                : "<span class='text-slate-300'>no key</span>") +
+            "</td>" +
+            "<td class='py-3 px-4 text-center font-bold text-slate-900'>" + (consentCounts[f.hipId] || 0) + "</td>" +
+            "<td class='py-3 px-4'>" + statusPill(status) + "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<button onclick=\"toggleFacilityStatus('" + jsId(f.hipId) + "','" + next + "')\" class='px-2.5 py-1 border rounded font-bold text-[10px] transition-colors " + btnClass + "'>" +
+                (status === "ACTIVE" ? "Suspend" : "Reactivate") +
+              "</button>" +
+            "</td>" +
+          "</tr>";
+      }).join("");
+    }
+
+    // Suspension is the sharpest tool an operator legitimately has: it invalidates
+    // the facility's API key at the gateway. It cannot reach inside an existing
+    // consent, because consents/$cid is writable only by the patient.
+    async function toggleFacilityStatus(hipId, next) {
+      if (!firebase.auth().currentUser) {
+        alert("Preview mode cannot write to the database. Sign in as a real admin first.");
+        return;
+      }
+      const fac = adminState.facilities.find((f) => f.hipId === hipId);
+      const name = fac ? fac.name : hipId;
+      const msg = next === "SUSPENDED"
+        ? "Suspend " + name + "?\n\nIts API key stops authenticating immediately and it cannot raise new consent requests.\n\nConsents this facility already holds are NOT revoked — only the patient can revoke those."
+        : "Reactivate " + name + "?\n\nIts existing API key will authenticate again.";
+      if (!confirm(msg)) return;
+      try {
+        await adminState.dbRef.child("hips/" + hipId + "/status").set(next);
+        await writeAdminAudit(next === "SUSPENDED" ? "HIP_SUSPENDED" : "HIP_REACTIVATED", hipId, name);
+      } catch (err) {
+        alert("Could not change facility status: " + err.message + "\n\nCheck that your account holds the admin role.");
+      }
+    }
+
+    /* ============================================================
+       LINKING ACTIVITY
+       ============================================================ */
+
+    // Rebased onto dataAccessLogs rather than linkRequests/careContexts. Those two
+    // nodes carry FHIR bundles, so the rules give an admin no read on them at all;
+    // the ledger records the same lifecycle events as metadata.
+    function renderLinkingActivity() {
+      const tbody = document.getElementById("admin-links-table-body");
+      if (!tbody) return;
+
+      const LINK_ACTIONS = ["DISCOVERY", "LINK_REQUESTED", "LINK_APPROVED", "LINK_REJECTED"];
+      const rows = adminState.accessLogs.filter((l) => LINK_ACTIONS.includes(l.action));
+
+      const proposed = rows.filter((l) => l.action === "LINK_REQUESTED").length;
+      const linked = rows.filter((l) => l.action === "LINK_APPROVED").length;
+      const rejected = rows.filter((l) => l.action === "LINK_REJECTED").length;
+      setText("stat-link-total", proposed);
+      setText("stat-link-linked", linked);
+      setText("stat-link-rejected", rejected);
+      setText("stat-link-pending", Math.max(0, proposed - linked - rejected));
+
+      if (!rows.length) {
+        emptyRow("admin-links-table-body", 5,
+          "No linking activity yet. A facility proposes a care context, and the patient approves or rejects it.");
+        return;
+      }
+
+      tbody.innerHTML = rows.slice(0, 300).map((l) => {
+        const style = ACTION_STYLES[l.action] || "bg-slate-100 text-slate-700";
+        const label = ACTION_LABELS[l.action] || l.action;
+        return "" +
+          "<tr class='hover:bg-slate-50 transition-colors'>" +
+            "<td class='py-3 px-4 text-slate-500 whitespace-nowrap'>" + fmtTs(l.ts) + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-slate-600 whitespace-nowrap'>" + maskAbhaKey(l.abhaKey) + "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<p class='font-semibold text-slate-900'>" + esc(l.actorLabel || "—") + "</p>" +
+              "<p class='font-mono text-[10px] text-slate-400'>" + esc(l.hipId || shortId(l.actorUid, 14)) + "</p>" +
+            "</td>" +
+            "<td class='py-3 px-4'><span class='pill " + style + "'>" + esc(label) + "</span></td>" +
+            "<td class='py-3 px-4 text-slate-500'>" + esc(l.detail || "—") + "</td>" +
+          "</tr>";
+      }).join("");
+    }
+
+    /* ============================================================
+       ABDM SUMMARY STATS
+       ============================================================ */
+
+    function updateAbdmStats() {
+      setText("stat-abha-count", adminState.abhaRecords.length);
+      setText("stat-hip-count", adminState.facilities.filter((f) => f.status !== "SUSPENDED").length);
+      setText("stat-consents-live", adminState.consents.filter((c) => effectiveStatus(c) === "GRANTED").length);
+      setText("stat-consents-pending", adminState.consents.filter((c) => effectiveStatus(c) === "REQUESTED").length);
+      setText("stat-fetch-denied", adminState.accessLogs.filter((l) => l.action === "FETCH_DENIED").length);
+    }
+
+    /* ============================================================
+       API MONITORING (original console, preserved)
+       ============================================================ */
+
+    function fmtReqTime(r) {
+      if (r.timestamp) return esc(String(r.timestamp));
+      return fmtTs(r.__ts);
+    }
+
+    function statusBadge(code) {
+      const n = Number(code);
+      const cls = n === 200 ? "bg-emerald-100 text-emerald-800"
+                : n === 401 || n === 403 ? "bg-amber-100 text-amber-800"
+                : n >= 400 ? "bg-red-100 text-red-800"
+                : "bg-slate-100 text-slate-700";
+      return '<span class="pill ' + cls + '">' + esc(code === undefined || code === null ? "—" : code) + "</span>";
+    }
+
+    function updateOverviewStats() {
+      const reqs = adminState.apiRequests;
+      setText("stat-total-requests", reqs.length);
+      setText("stat-successful-requests", reqs.filter((r) => Number(r.status) === 200).length);
+      setText("stat-failed-requests", reqs.filter((r) => Number(r.status) >= 400).length);
+      setText("stat-successful-mappings", reqs.filter((r) => Number(r.status) === 200 && r.namasteCode).length);
+    }
+
+    function updateHealthCounts() {
+      setText("health-user-count", adminState.users.length);
+      setText("health-request-count", adminState.apiRequests.length);
+      const auth = document.getElementById("health-auth");
+      if (auth) {
+        const signedIn = !!firebase.auth().currentUser;
+        auth.innerText = signedIn ? "Admin session active" : (adminState.previewMode ? "Preview (no session)" : "Signed out");
+        auth.className = "text-lg font-extrabold " + (signedIn ? "text-emerald-600" : "text-amber-600");
+      }
+    }
+
+    function renderOverviewRequests() {
+      const tbody = document.getElementById("overview-requests-body");
+      if (!tbody) return;
+      const rows = adminState.apiRequests.slice(0, 8);
+      if (!rows.length) {
+        emptyRow("overview-requests-body", 7, "No API calls logged yet. Use the API Console in <code>index.html</code>.");
+        return;
+      }
+      tbody.innerHTML = rows.map((r) => "" +
+        "<tr class='hover:bg-slate-50 transition-colors'>" +
+          "<td class='py-3 px-4 text-slate-500 whitespace-nowrap font-mono text-[10px]'>" + fmtReqTime(r) + "</td>" +
+          "<td class='py-3 px-4 font-mono text-[10px] text-slate-600'>" + shortId(r.requestId, 14) + "</td>" +
+          "<td class='py-3 px-4 text-slate-700'>" + esc(r.userEmail || "—") + "</td>" +
+          "<td class='py-3 px-4 font-mono text-[10px] text-teal-700'>" + esc(r.endpoint || "—") + "</td>" +
+          "<td class='py-3 px-4 text-slate-600'>" + esc(r.legacyTerm || r.namasteCode || "—") + "</td>" +
+          "<td class='py-3 px-4'>" + statusBadge(r.status) + "</td>" +
+          "<td class='py-3 px-4'>" +
+            "<button onclick=\"openRequestDetailsModal('" + jsId(r.requestId) + "')\" class='px-2.5 py-1 bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 rounded font-bold text-[10px] transition-colors'>Inspect</button>" +
+          "</td>" +
+        "</tr>").join("");
+    }
+
+    function renderFullRequestsTable() {
+      const tbody = document.getElementById("full-requests-table-body");
+      if (!tbody) return;
+      const rows = adminState.apiRequests;
+      if (!rows.length) {
+        emptyRow("full-requests-table-body", 9, "No API calls logged yet.");
+        return;
+      }
+      tbody.innerHTML = rows.map((r) => "" +
+        "<tr class='hover:bg-slate-50 transition-colors'>" +
+          "<td class='py-3 px-4 text-slate-500 whitespace-nowrap font-mono text-[10px]'>" + fmtReqTime(r) + "</td>" +
+          "<td class='py-3 px-4 font-mono text-[10px] text-slate-600'>" + shortId(r.requestId, 16) + "</td>" +
+          "<td class='py-3 px-4 text-slate-700'>" + esc(r.userEmail || "—") + "</td>" +
+          "<td class='py-3 px-4 font-mono text-[10px] text-teal-700'>" +
+            "<span class='pill bg-slate-100 text-slate-700 mr-1'>" + esc(r.method || "GET") + "</span>" + esc(r.endpoint || "—") +
+          "</td>" +
+          "<td class='py-3 px-4 text-slate-600'>" + esc(r.legacyTerm || "—") + "</td>" +
+          "<td class='py-3 px-4 font-mono text-[10px] text-slate-600'>" + esc(r.namasteCode || "—") + "</td>" +
+          "<td class='py-3 px-4'>" + statusBadge(r.status) + "</td>" +
+          "<td class='py-3 px-4 text-slate-500 font-mono text-[10px]'>" + (typeof r.latencyMs === "number" ? esc(r.latencyMs) + " ms" : "—") + "</td>" +
+          "<td class='py-3 px-4'>" +
+            "<button onclick=\"openRequestDetailsModal('" + jsId(r.requestId) + "')\" class='px-2.5 py-1 bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 rounded font-bold text-[10px] transition-colors'>Details</button>" +
+          "</td>" +
+        "</tr>").join("");
+    }
+
+    function openRequestDetailsModal(requestId) {
+      const r = adminState.apiRequests.find((x) => x.requestId === requestId);
+      if (!r) return;
+      setText("request-details-title", r.requestId || "—");
+      const sub = document.getElementById("request-details-sub");
+      if (sub) {
+        sub.innerHTML = "<span class='font-mono'>" + esc(r.method || "GET") + " " + esc(r.endpoint || "") + "</span> &middot; " +
+                        statusBadge(r.status) + " &middot; " + (typeof r.latencyMs === "number" ? esc(r.latencyMs) + " ms" : "—") +
+                        (r.hipId ? " &middot; <span class='font-mono'>" + esc(r.hipId) + "</span>" : "");
+      }
+      const body = document.getElementById("request-details-body");
+      const resp = document.getElementById("request-details-response");
+      // logApiRequest() in index.html stores requestBody/responseBody as REAL
+      // OBJECTS, so RTDB hands them back as objects — not JSON strings. The old
+      // implementation called JSON.parse(raw) on them: JSON.parse coerces its
+      // argument to a string first, so an object became the literal text
+      // "[object Object]", JSON.parse threw on it, and the catch branch printed
+      // that coercion. Hence the inspector showed "[object Object]" for every
+      // request. Objects must be stringified directly; only genuine strings
+      // should be routed through a parse/re-stringify to pretty-print them.
+      const pretty = (raw) => {
+        if (raw === undefined || raw === null || raw === "") return "(empty)";
+        if (typeof raw === "object") {
+          try {
+            // RTDB drops empty objects entirely, but a body of {} can still
+            // reach here from an in-memory record before the echo arrives.
+            if (!Object.keys(raw).length) return "(empty)";
+            return JSON.stringify(raw, null, 2);
+          } catch (e) { return "(payload could not be serialised)"; }
+        }
+        if (typeof raw === "string") {
+          try { return JSON.stringify(JSON.parse(raw), null, 2); } catch (e) { return raw; }
+        }
+        return String(raw);
+      };
+      if (body) body.innerText = pretty(r.requestBody);
+      if (resp) resp.innerText = pretty(r.responseBody);
+      document.getElementById("modal-request-details").classList.remove("hidden");
+    }
+
+    function renderLiveTraffic() {
+      const reqs = adminState.apiRequests;
+      const now = Date.now();
+
+      setText("traffic-last-hour", reqs.filter((r) => (r.__ts || 0) > now - 3600000).length);
+      setText("traffic-unique-users", new Set(reqs.map((r) => r.userEmail || r.userUid).filter(Boolean)).size);
+
+      const byEndpoint = {};
+      reqs.forEach((r) => {
+        const key = r.endpoint || "(unknown)";
+        byEndpoint[key] = (byEndpoint[key] || 0) + 1;
+      });
+      const ranked = Object.entries(byEndpoint).sort((a, b) => b[1] - a[1]);
+      setText("traffic-top-endpoint", ranked.length ? ranked[0][0] : "—");
+
+      // 20 one-minute buckets, oldest on the left.
+      const spark = document.getElementById("traffic-sparkline");
+      if (spark) {
+        const buckets = new Array(20).fill(0);
+        reqs.forEach((r) => {
+          const age = now - (r.__ts || 0);
+          if (age < 0 || age >= 20 * 60000) return;
+          buckets[19 - Math.floor(age / 60000)]++;
+        });
+        const peak = Math.max(1, ...buckets);
+        spark.innerHTML = buckets.map((count, i) => {
+          const pct = Math.round((count / peak) * 100);
+          const minsAgo = 19 - i;
+          return "<div class='flex-1 flex flex-col justify-end items-center gap-1 group' title='" + count + " request(s), " + minsAgo + " min ago'>" +
+                   "<span class='text-[9px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity'>" + count + "</span>" +
+                   "<div class='w-full rounded-t " + (count ? "bg-teal-500" : "bg-slate-100") + "' style='height:" + Math.max(pct, 2) + "%'></div>" +
+                 "</div>";
+        }).join("");
+      }
+
+      const breakdown = document.getElementById("traffic-endpoint-breakdown");
+      if (breakdown) {
+        if (!ranked.length) {
+          breakdown.innerHTML = "<p class='text-xs text-slate-400 text-center py-4'>No traffic recorded yet.</p>";
+        } else {
+          const peak = ranked[0][1];
+          breakdown.innerHTML = ranked.map(([endpoint, count]) =>
+            "<div class='space-y-1'>" +
+              "<div class='flex items-center justify-between text-[11px]'>" +
+                "<span class='font-mono text-slate-700'>" + esc(endpoint) + "</span>" +
+                "<span class='font-bold text-slate-900'>" + count + "</span>" +
+              "</div>" +
+              "<div class='h-2 bg-slate-100 rounded-full overflow-hidden'>" +
+                "<div class='h-full bg-teal-500 rounded-full' style='width:" + Math.round((count / peak) * 100) + "%'></div>" +
+              "</div>" +
+            "</div>").join("");
+        }
+      }
+    }
+
+    /* ============================================================
+       REFERENCE DATA (static, no DB reads)
+       ============================================================ */
+
+    function renderAdminTerminology() {
+      const tbody = document.getElementById("admin-terminology-table-body");
+      if (!tbody) return;
+      tbody.innerHTML = TERMINOLOGY_DATABASE.map((t) => "" +
+        "<tr class='hover:bg-slate-50 transition-colors'>" +
+          "<td class='py-3 px-4 font-semibold text-slate-900'>" + esc(t.termEnglish) + "</td>" +
+          "<td class='py-3 px-4 text-slate-600'>" + esc(t.termSanskrit) + "</td>" +
+          "<td class='py-3 px-4'><span class='pill bg-teal-100 text-teal-800'>" + esc(t.ayushStream) + "</span></td>" +
+          "<td class='py-3 px-4 font-mono text-[10px] text-slate-700'>" + esc(t.namasteCode) + "</td>" +
+          "<td class='py-3 px-4 font-mono text-[10px] text-indigo-700'>" + esc(t.icd11Tm2Code) + "</td>" +
+        "</tr>").join("");
+    }
+
+    function renderMappings() {
+      const tbody = document.getElementById("admin-mappings-table-body");
+      if (!tbody) return;
+      tbody.innerHTML = TERMINOLOGY_DATABASE.map((t) => {
+        const conf = Number(t.confidence) || 0;
+        const cls = conf >= 96 ? "bg-emerald-500" : conf >= 94 ? "bg-teal-500" : "bg-amber-500";
+        return "" +
+          "<tr class='hover:bg-slate-50 transition-colors'>" +
+            "<td class='py-3 px-4 font-semibold text-slate-900'>" + esc(t.termEnglish) + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-slate-700'>" + esc(t.namasteCode) + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-indigo-700'>" + esc(t.icd11Tm2Code) + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-purple-700'>" + esc(t.icd11MmsCode) + "</td>" +
+            "<td class='py-3 px-4 font-mono text-[10px] text-slate-600'>" + esc(t.snomedCode) + "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<div class='flex items-center gap-2'>" +
+                "<div class='w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden'>" +
+                  "<div class='h-full " + cls + " rounded-full' style='width:" + conf + "%'></div>" +
+                "</div>" +
+                "<span class='font-bold text-slate-900 text-[11px]'>" + conf + "%</span>" +
+              "</div>" +
+            "</td>" +
+          "</tr>";
+      }).join("");
+    }
+
+    function renderFhirResources() {
+      const list = document.getElementById("admin-fhir-list");
+      if (!list) return;
+      list.innerHTML = FHIR_SAMPLES.map((res) =>
+        "<div class='border border-slate-200 rounded-xl overflow-hidden'>" +
+          "<div class='px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between'>" +
+            "<span class='font-bold text-slate-900 text-xs font-mono'>" + esc(res.resourceType) + "</span>" +
+            "<span class='font-mono text-[10px] text-slate-500'>" + esc(res.id) + "</span>" +
+          "</div>" +
+          "<pre class='p-4 code-bg text-slate-300 font-mono text-[10px] overflow-x-auto max-h-56 leading-relaxed'>" +
+            esc(JSON.stringify(res, null, 2)) +
+          "</pre>" +
+        "</div>").join("");
+    }
+
+    /* ============================================================
+       USERS & ROLES
+       ============================================================ */
+
+    function renderUsersAndRoles() {
+      const tbody = document.getElementById("admin-users-table-body");
+      if (!tbody) return;
+      if (!adminState.users.length) {
+        emptyRow("admin-users-table-body", 6, "No user profiles readable. Sign in as an admin to load <code>users/</code>.");
+        return;
+      }
+      const me = firebase.auth().currentUser;
+      const rows = adminState.users.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const roles = ["patient", "hospital", "user", "admin"];
+
+      tbody.innerHTML = rows.map((u) => {
+        const role = u.role || "user";
+        const isMe = me && me.uid === u.uid;
+        const roleStyle = role === "admin" ? "bg-red-100 text-red-800"
+                        : role === "hospital" ? "bg-indigo-100 text-indigo-800"
+                        : role === "patient" ? "bg-teal-100 text-teal-800"
+                        : "bg-slate-100 text-slate-700";
+        const identity = u.abhaKey
+          ? "<span class='font-mono text-[10px] text-teal-700'>" + maskAbhaKey(u.abhaKey) + "</span>"
+          : (u.hipId ? "<span class='font-mono text-[10px] text-indigo-700'>" + esc(u.hipId) + "</span>"
+                     : "<span class='text-slate-300'>—</span>");
+        const options = roles.map((r) =>
+          "<option value='" + r + "'" + (r === role ? " selected" : "") + ">" + r + "</option>").join("");
+        return "" +
+          "<tr class='hover:bg-slate-50 transition-colors'>" +
+            "<td class='py-3 px-4 font-semibold text-slate-900'>" +
+              esc(u.displayName || "—") + (isMe ? " <span class='pill bg-slate-900 text-white ml-1'>you</span>" : "") +
+              "<p class='font-mono text-[10px] text-slate-400 font-normal'>" + shortId(u.uid, 16) + "</p>" +
+            "</td>" +
+            "<td class='py-3 px-4 text-slate-600'>" + esc(u.email || "—") + "</td>" +
+            "<td class='py-3 px-4'><span class='pill " + roleStyle + "'>" + esc(role) + "</span></td>" +
+            "<td class='py-3 px-4'>" + identity + "</td>" +
+            "<td class='py-3 px-4 text-slate-500 whitespace-nowrap'>" + fmtDay(u.createdAt) + "</td>" +
+            "<td class='py-3 px-4'>" +
+              "<select onchange=\"setUserRole('" + jsId(u.uid) + "', this.value)\" class='px-2 py-1 border border-slate-200 rounded-lg text-[11px] font-semibold bg-white hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500'>" +
+                options +
+              "</select>" +
+            "</td>" +
+          "</tr>";
+      }).join("");
+    }
+
+    async function setUserRole(uid, newRole) {
+      if (!firebase.auth().currentUser) {
+        alert("Preview mode cannot write to the database. Sign in as a real admin first.");
+        renderUsersAndRoles();
+        return;
+      }
+      const target = adminState.users.find((u) => u.uid === uid);
+      const current = target ? (target.role || "user") : "user";
+      if (current === newRole) return;
+
+      const me = firebase.auth().currentUser;
+      const adminCount = adminState.users.filter((u) => (u.role || "user") === "admin").length;
+
+      // Guard against the one irreversible mistake available on this page. With
+      // meta/adminExists set, nobody can self-assign the admin role any more, so
+      // the last admin demoting themselves locks the console permanently.
+      if (me.uid === uid && current === "admin" && newRole !== "admin" && adminCount <= 1) {
+        alert("Refusing to demote the only admin account.\n\nSelf-service admin registration is closed, so there would be no way back into this console. Promote another account to admin first.");
+        renderUsersAndRoles();
+        return;
+      }
+
+      const warn = newRole === "admin"
+        ? "Promote " + (target && target.email ? target.email : uid) + " to admin?\n\nThey will be able to read the consent registry, the access ledger, the ABHA registry and the facility registry — but never clinical payloads."
+        : "Change the role of " + (target && target.email ? target.email : uid) + " from " + current + " to " + newRole + "?";
+      if (!confirm(warn)) {
+        renderUsersAndRoles();
+        return;
+      }
+
+      try {
+        // Writing the leaf, not the parent: .validate does not cascade upward, so
+        // only the role validator is evaluated and the profile stays intact.
+        await adminState.dbRef.child("users/" + uid + "/role").set(newRole);
+        await writeAdminAudit("ROLE_CHANGED", uid, (target && target.email ? target.email : uid) + ": " + current + " → " + newRole);
+      } catch (err) {
+        alert("Role change refused: " + err.message);
+        renderUsersAndRoles();
+      }
+    }
+
+    // Kept for compatibility with the previous console's promote/demote button.
+    function toggleUserRole(uid, currentRole) {
+      return setUserRole(uid, currentRole === "admin" ? "patient" : "admin");
+    }
+
+    /* ============================================================
+       AUDIT LOG
+       ============================================================ */
+
+    function renderAdminAudit() {
+      const tbody = document.getElementById("admin-audit-table-body");
+      if (!tbody) return;
+      if (!adminState.auditLogs.length) {
+        emptyRow("admin-audit-table-body", 5,
+          "No admin actions recorded yet. Suspending a facility, changing a role or closing the bootstrap window all write here.");
+        return;
+      }
+      tbody.innerHTML = adminState.auditLogs.map((a) => "" +
+        "<tr class='hover:bg-slate-50 transition-colors'>" +
+          "<td class='py-3 px-4 text-slate-500 whitespace-nowrap'>" + fmtTs(a.ts) + "</td>" +
+          "<td class='py-3 px-4'>" +
+            "<p class='text-slate-700'>" + esc(a.actorEmail || "—") + "</p>" +
+            "<p class='font-mono text-[10px] text-slate-400'>" + shortId(a.actorUid, 16) + "</p>" +
+          "</td>" +
+          "<td class='py-3 px-4'><span class='pill bg-slate-900 text-white'>" + esc(a.action || "—") + "</span></td>" +
+          "<td class='py-3 px-4 font-mono text-[10px] text-slate-600'>" + esc(a.target || "—") + "</td>" +
+          "<td class='py-3 px-4 text-slate-500'>" + esc(a.detail || "—") + "</td>" +
+        "</tr>").join("");
+    }
+
+    /* ============================================================
+       NODE REACHABILITY PROBE
+       ============================================================ */
+
+    // Runs a real read against each top-level node and reports allowed/denied
+    // against what the rules are supposed to do. Two nodes are expected to be
+    // denied; if they ever come back allowed, the rules have regressed.
+    function probeNodes() {
+      if (!adminState.dbRef) return;
+      adminState.nodeProbeResults = NODE_PROBES.map((p) => Object.assign({}, p, { actual: "pending" }));
+      renderNodeProbeTable();
+
+      NODE_PROBES.forEach((p, idx) => {
+        adminState.dbRef.child(p.path).limitToFirst(1).once("value")
+          .then(() => {
+            adminState.nodeProbeResults[idx].actual = "allow";
+            renderNodeProbeTable();
+          })
+          .catch(() => {
+            adminState.nodeProbeResults[idx].actual = "deny";
+            renderNodeProbeTable();
+          });
+      });
+    }
+
+    function renderNodeProbeTable() {
+      const host = document.getElementById("health-node-table");
+      if (!host) return;
+      const results = adminState.nodeProbeResults.length
+        ? adminState.nodeProbeResults
+        : NODE_PROBES.map((p) => Object.assign({}, p, { actual: "pending" }));
+
+      host.innerHTML = results.map((r) => {
+        const matched = r.actual === r.expected;
+        const pending = r.actual === "pending";
+        const badge = pending
+          ? "<span class='pill bg-slate-100 text-slate-500'>probing&hellip;</span>"
+          : matched
+            ? "<span class='pill st-granted'>" + (r.actual === "allow" ? "readable, as designed" : "blocked, as designed") + "</span>"
+            : "<span class='pill st-denied'>RULES REGRESSION</span>";
+        const border = pending ? "border-slate-200" : matched ? "border-slate-200" : "border-red-300 bg-red-50";
+        return "<div class='flex items-start justify-between gap-4 p-3 border rounded-xl " + border + "'>" +
+                 "<div class='min-w-0'>" +
+                   "<p class='font-mono text-xs font-bold text-slate-900'>" + esc(r.path) + "/</p>" +
+                   "<p class='text-[11px] text-slate-500'>" + esc(r.why) + "</p>" +
+                 "</div>" +
+                 "<div class='shrink-0 text-right space-y-1'>" +
+                   badge +
+                   "<p class='text-[10px] text-slate-400'>expected: " + (r.expected === "allow" ? "readable" : "blocked") + "</p>" +
+                 "</div>" +
+               "</div>";
+      }).join("");
+    }
+
+    /* ============================================================
+       MODALS
+       ============================================================ */
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add("hidden");
+    }
+
+    // Crossing into the desktop breakpoint must clear any mobile drawer state,
+    // most importantly the body scroll lock.
+    window.addEventListener("resize", () => {
+      if (window.innerWidth >= 768) closeSidebar();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeModal("modal-request-details");
+        closeModal("modal-consent-artifact");
+        closeSidebar();
+      }
+    });
+  </script>
+</body>
+</html>

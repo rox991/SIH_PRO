@@ -1,0 +1,14 @@
+{
+  "name": "ayurfhir-admin",
+  "version": "1.0.0",
+  "description": "AyurFHIR Admin Console & Governance Layer",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
