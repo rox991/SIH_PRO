@@ -6,31 +6,35 @@ This experimental branch converts the original two-page Firebase prototype into 
 
 ```bash
 npm install
-cp backend/.env.example backend/.env   # then fill in the Firebase values below
 npm run dev
 ```
 
-Open `http://localhost:3000/`. The Express process serves:
+Open `http://localhost:3000/`. One command, one server — `server.js` serves the app and its API:
 
-- `/patient/` — practitioner portal
-- `/admin/` — administration UI
-- `/api/health` — backend health endpoint
+- `/` — practitioner portal (`index.html`)
+- `/admin.html` — admin console
+- `/api/health` — health endpoint with version stamps
+- `/ValueSet/$expand`, `/ConceptMap/$translate`, `/Bundle` — FHIR R4 terminology operations
+- `/icd/*` — live WHO ICD-11 container proxy
+- `/api/curation` — curation queue
 
-The app boots without Firebase credentials, but sign-in stays disabled and the portal runs in guest mode.
+`npm test` runs the suite in `test.js` against a running server on port 3000.
 
-### Standalone ICD-11 demo servers
+### Other entry points
 
-The repository also carries a self-contained NAMASTE ↔ ICD-11 terminology demo that predates the
-backend/frontend split. It is **not** part of `npm run dev`; run it separately when you need it:
+`npm run dev` is the one you want. These exist for working on the sub-apps in isolation and are
+not needed for normal development:
 
 | Command | Port | Serves |
 | --- | --- | --- |
-| `npm run dev:icd` | 3001 | `server.js` — FHIR `$expand`/`$translate`, curation queue, `client/` pages |
-| `npm run dev:client` | 5173 | `client/server.js` — hospital EMR client |
-| `npm run dev:admin` | 5174 | `admin/server.js` — admin console |
+| `npm run dev:client` | 5173 | `client/server.js` — hospital EMR client, own copy of the pages |
+| `npm run dev:admin` | 5174 | `admin/server.js` — admin console, own copy of the pages |
+| `npm run dev:backend` | 3000 | `backend/src/app.js` — Firebase-auth backend serving `frontend/` |
 
-These serve their own copies of `index.html` / `admin.html` and do not share the Firebase auth layer
-used by `frontend/`.
+`npm run dev` and `npm run dev:backend` both bind port 3000; run one at a time.
+
+The Firebase-backed `backend/` + `frontend/` stack below applies only to `npm run dev:backend`.
+The app served by `npm run dev` does not require Firebase credentials.
 
 ## Firebase setup
 

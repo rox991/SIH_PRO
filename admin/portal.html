@@ -4662,7 +4662,7 @@
     if (!host) return;
 
     host.innerHTML = '<div class="p-4 bg-slate-950/80 rounded-xl border border-teal-500/40 text-xs font-mono text-teal-400 animate-pulse">'
-      + 'Sending live request to WHO ICD-11 container at http://10.21.91.147/icd/entity/2066255370 ...</div>';
+      + 'Sending live request to WHO ICD-11 container at http://localhost/icd/entity/2066255370 ...</div>';
 
     try {
       const res = await fetch("/icd/entity/2066255370", {
@@ -4713,7 +4713,7 @@
   };
 
   window.copyWhoCurlSnippet = function () {
-    const snippet = "curl -X 'GET' 'http://10.21.91.147/icd/entity/2066255370' -H 'accept: application/json' -H 'API-Version: v2' -H 'Accept-Language: en'";
+    const snippet = "curl -X 'GET' 'http://localhost/icd/entity/2066255370' -H 'accept: application/json' -H 'API-Version: v2' -H 'Accept-Language: en'";
     navigator.clipboard.writeText(snippet).then(() => {
       showToast("cURL command copied to clipboard!", "success");
     });

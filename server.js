@@ -5,7 +5,7 @@
  * for integration into existing EMR systems.
  *
  * Microservice Capabilities:
- * 1. Live proxy and cache to WHO ICD-11 container at http://10.21.91.147
+ * 1. Live proxy and cache to WHO ICD-11 container at http://localhost
  * 2. FHIR R4 /ValueSet/$expand autocomplete (NAMASTE + ICD-11 TM2)
  * 3. FHIR R4 /ConceptMap/$translate dual-coding mapper with honest semantics
  * 4. FHIR R4 /Bundle & /Condition dual-coded problem list persistence
@@ -18,13 +18,38 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const PORT = process.env.PORT || 3001;
-const ICD11_CONTAINER_HOST = process.env.ICD11_HOST || 'http://10.21.91.147';
+const PORT = process.env.PORT || 3000;
+const ICD11_CONTAINER_HOST = process.env.ICD11_HOST || 'http://localhost';
 
 // Load Ayurveda NAMASTE Terminology Dataset
 const DATA_FILE = path.join(__dirname, 'data', 'namaste_ayurveda.json');
-// The demo pages (index.html, admin.html) live in client/, not next to this file.
-const STATIC_ROOT = path.join(__dirname, 'client');
+// index.html and admin.html sit next to this file; client/ and admin/ hold copies
+// served by their own standalone servers.
+const STATIC_ROOT = __dirname;
+
+// Friendly URLs for the two pages. '/admin' would otherwise resolve to the admin/
+// directory, fail the isFile() check, and silently fall through to index.html.
+const PAGE_ROUTES = {
+  '/': 'index.html',
+  '/admin': 'admin.html',
+  '/admin/': 'admin.html',
+  '/portal': 'admin.html'
+};
+
+// STATIC_ROOT is the repository root, so only root-level assets are servable and
+// the server's own sources stay private. Without this, /backend/.env and
+// /.git/config are downloadable.
+const PRIVATE_FILES = new Set(['server.js', 'test.js', 'package.json', 'package-lock.json']);
+
+function resolveStatic(pathname) {
+  const route = PAGE_ROUTES[pathname];
+  if (route) return path.join(STATIC_ROOT, route);
+
+  const name = pathname.replace(/^\/+/, '');
+  // Reject subdirectories, dotfiles and the server's own sources.
+  if (!name || name.includes('/') || name.startsWith('.') || PRIVATE_FILES.has(name)) return null;
+  return path.join(STATIC_ROOT, name);
+}
 let TERMINOLOGY_DB = [];
 try {
   if (fs.existsSync(DATA_FILE)) {
@@ -479,10 +504,11 @@ const server = http.createServer(async (req, res) => {
     // -------------------------------------------------------------
     // 7. Static File Server (serves index.html, admin.html, etc.)
     // -------------------------------------------------------------
-    let filePath = path.join(STATIC_ROOT, pathname === '/' ? 'index.html' : pathname);
+    let filePath = resolveStatic(pathname) || path.join(STATIC_ROOT, 'index.html');
 
-    // Security check: prevent directory traversal
-    if (filePath !== STATIC_ROOT && !filePath.startsWith(STATIC_ROOT + path.sep)) {
+    // Belt and braces: resolveStatic already rejects separators, but re-check the
+    // resolved path in case STATIC_ROOT ever moves.
+    if (!filePath.startsWith(STATIC_ROOT + path.sep)) {
       res.writeHead(403);
       return res.end('Access denied');
     }

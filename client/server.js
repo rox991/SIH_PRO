@@ -11,7 +11,7 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5173;
-const ICD11_CONTAINER_HOST = process.env.ICD11_HOST || 'http://10.21.91.147';
+const ICD11_CONTAINER_HOST = process.env.ICD11_HOST || 'http://localhost';
 
 // Middleware
 app.use(cors());
