@@ -91,58 +91,58 @@
     <nav id="sidebar-nav" class="flex-1 p-3 space-y-1 overflow-y-auto hidden md:block">
       <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2">Overview</div>
 
-      <a href="#home" onclick="switchTab('home')" id="nav-home" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-900 font-bold text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-slate-500">home</span>
-        <span>Platform Overview</span>
+      <a href="#home" onclick="switchTab('home')" id="nav-home" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg bg-teal-50 text-teal-900 font-bold text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500 mt-0.5">home</span>
+        <span class="leading-tight">Platform Overview<span class="block text-[10px] font-normal text-slate-400 mt-0.5">What this app does, in one page</span></span>
       </a>
 
       <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">ABDM Identity</div>
 
-      <a href="#abha" onclick="switchTab('abha')" id="nav-abha" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-teal-600">badge</span>
-        <span>ABHA Onboarding</span>
+      <a href="#abha" onclick="switchTab('abha')" id="nav-abha" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-teal-600 mt-0.5">badge</span>
+        <span class="leading-tight">ABHA Onboarding<span class="block text-[10px] font-normal text-slate-400 mt-0.5">Create or fetch a patient's health ID</span></span>
       </a>
 
       <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">Portals</div>
 
-      <a href="#patient" onclick="switchTab('patient')" id="nav-patient" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-slate-500">personal_injury</span>
-        <span>Patient Portal</span>
-        <span id="nav-patient-badge" class="hidden ml-auto px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold">0</span>
+      <a href="#patient" onclick="switchTab('patient')" id="nav-patient" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500 mt-0.5">personal_injury</span>
+        <span class="leading-tight flex-1">Patient Portal<span class="block text-[10px] font-normal text-slate-400 mt-0.5">Approve links, sign consent, view records</span></span>
+        <span id="nav-patient-badge" class="hidden ml-auto px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold self-start">0</span>
       </a>
 
-      <a href="#hospital" onclick="switchTab('hospital')" id="nav-hospital" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-slate-500">local_hospital</span>
-        <span>Hospital (HIP / HIU)</span>
+      <a href="#hospital" onclick="switchTab('hospital')" id="nav-hospital" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500 mt-0.5">local_hospital</span>
+        <span class="leading-tight">Hospital (HIP / HIU)<span class="block text-[10px] font-normal text-slate-400 mt-0.5">The doctor / clinic side</span></span>
       </a>
 
       <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">Developer Suite</div>
 
-      <a href="#api" onclick="switchTab('api')" id="nav-api" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-teal-600">code_blocks</span>
-        <span>Hospital API Console</span>
+      <a href="#api" onclick="switchTab('api')" id="nav-api" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-teal-600 mt-0.5">code_blocks</span>
+        <span class="leading-tight">Hospital API Console<span class="block text-[10px] font-normal text-slate-400 mt-0.5">Try every endpoint, for developers</span></span>
       </a>
 
-      <a href="#terminology" onclick="switchTab('terminology')" id="nav-terminology" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-slate-500">menu_book</span>
-        <span>Terminology Search</span>
+      <a href="#terminology" onclick="switchTab('terminology')" id="nav-terminology" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500 mt-0.5">menu_book</span>
+        <span class="leading-tight">Terminology Search<span class="block text-[10px] font-normal text-slate-400 mt-0.5">Look up Ayurveda ↔ ICD-11 codes</span></span>
       </a>
 
-      <a href="#explorer" onclick="switchTab('explorer')" id="nav-explorer" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-slate-500">dataset_linked</span>
-        <span>FHIR Resource Explorer</span>
+      <a href="#explorer" onclick="switchTab('explorer')" id="nav-explorer" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500 mt-0.5">dataset_linked</span>
+        <span class="leading-tight">FHIR Resource Explorer<span class="block text-[10px] font-normal text-slate-400 mt-0.5">Inspect the raw record format</span></span>
       </a>
 
       <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 mt-3">Monitoring</div>
 
-      <a href="#dashboard" onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-slate-500">dashboard</span>
-        <span>Live Dashboard</span>
+      <a href="#dashboard" onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500 mt-0.5">dashboard</span>
+        <span class="leading-tight">Live Dashboard<span class="block text-[10px] font-normal text-slate-400 mt-0.5">Recent activity, at a glance</span></span>
       </a>
 
-      <a href="#security" onclick="switchTab('security')" id="nav-security" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
-        <span class="material-symbols-outlined text-xl text-slate-500">lock</span>
-        <span>Session & Security</span>
+      <a href="#security" onclick="switchTab('security')" id="nav-security" class="nav-item flex items-start gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-slate-500 mt-0.5">lock</span>
+        <span class="leading-tight">Session & Security<span class="block text-[10px] font-normal text-slate-400 mt-0.5">How your data is protected</span></span>
       </a>
 
       <a id="admin-console-btn" href="admin.html" target="_blank" class="hidden items-center gap-3 px-3.5 py-2.5 rounded-lg bg-slate-900 text-white font-semibold text-xs mt-4 shadow-sm hover:bg-slate-800 transition-all">
@@ -188,14 +188,6 @@
         </button>
 
         <div class="flex items-center gap-2">
-          <button type="button" onclick="quickStartDemoClinician()" class="px-3 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5" title="Instant Clinician Demo">
-            <span class="material-symbols-outlined text-sm">bolt</span>
-            <span>1-Click Demo Clinician</span>
-          </button>
-          <a href="admin.html" target="_blank" class="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-lg text-xs font-semibold transition-colors">
-            <span class="material-symbols-outlined text-sm">admin_panel_settings</span>
-            <span>Admin Console ↗</span>
-          </a>
           <button id="header-auth-btn" onclick="openAuthModal()" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
             <span class="material-symbols-outlined text-sm">account_circle</span>
             <span id="header-auth-btn-text">Sign In / Sign Up</span>
@@ -232,19 +224,41 @@
               AyurFHIR Bridge issues an ABHA identity from Aadhaar eKYC, links medical records to it as FHIR R4 bundles dual-coded in NAMASTE and ICD-11 TM2, and brokers every hospital access through a consent artifact the patient signs — and can revoke mid-session.
             </p>
             <div class="flex flex-wrap items-center gap-3 pt-2">
-              <button onclick="switchTab('abha')" class="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg flex items-center gap-2">
-                Create or Fetch ABHA
-                <span class="material-symbols-outlined text-lg">badge</span>
-              </button>
-              <button onclick="switchTab('api')" class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl text-sm transition-all border border-white/20 flex items-center gap-2">
-                Hospital API Console
-                <span class="material-symbols-outlined text-lg">code_blocks</span>
-              </button>
-              <button onclick="runGuidedDemo()" class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl text-sm transition-all border border-white/20 flex items-center gap-2">
-                Guided walkthrough
+              <button onclick="runGuidedDemo()" class="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg flex items-center gap-2">
                 <span class="material-symbols-outlined text-lg">play_circle</span>
+                New here? Start the guided tour
+              </button>
+              <button onclick="openModal('help-modal')" class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl text-sm transition-all border border-white/20 flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">help</span>
+                What do these words mean?
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- ===== 3-step "start here" strip: the fastest way to see the whole system work ===== -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 class="font-bold text-slate-900 text-base mb-1">Try it yourself — 3 steps, no setup</h3>
+          <p class="text-xs text-slate-500 mb-4">Everything is a working demo. Nothing you do here touches real patient data.</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button onclick="switchTab('abha')" class="text-left p-4 rounded-xl border border-slate-200 hover:border-teal-400 hover:shadow-md transition-all group">
+              <span class="inline-flex w-7 h-7 rounded-full bg-slate-900 text-white text-xs font-extrabold items-center justify-center">1</span>
+              <p class="font-bold text-sm text-slate-900 mt-2">Get a patient ID</p>
+              <p class="text-xs text-slate-500 mt-1 leading-relaxed">Use the "test number" button to create an ABHA address in under a minute — no real Aadhaar needed.</p>
+              <span class="text-xs font-bold text-teal-700 mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">Go to ABHA Onboarding <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+            </button>
+            <button onclick="switchTab('hospital')" class="text-left p-4 rounded-xl border border-slate-200 hover:border-teal-400 hover:shadow-md transition-all group">
+              <span class="inline-flex w-7 h-7 rounded-full bg-slate-900 text-white text-xs font-extrabold items-center justify-center">2</span>
+              <p class="font-bold text-sm text-slate-900 mt-2">Send a dual-coded record</p>
+              <p class="text-xs text-slate-500 mt-1 leading-relaxed">As the hospital, pick a NAMASTE diagnosis and push it — it's coded in NAMASTE + ICD-11 TM2 automatically.</p>
+              <span class="text-xs font-bold text-teal-700 mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">Go to Hospital Portal <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+            </button>
+            <button onclick="switchTab('patient')" class="text-left p-4 rounded-xl border border-slate-200 hover:border-teal-400 hover:shadow-md transition-all group">
+              <span class="inline-flex w-7 h-7 rounded-full bg-slate-900 text-white text-xs font-extrabold items-center justify-center">3</span>
+              <p class="font-bold text-sm text-slate-900 mt-2">Approve it as the patient</p>
+              <p class="text-xs text-slate-500 mt-1 leading-relaxed">Nothing is saved to the record until you approve it here — see consent working, not just claimed.</p>
+              <span class="text-xs font-bold text-teal-700 mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">Go to Patient Portal <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+            </button>
           </div>
         </div>
 
@@ -1005,6 +1019,7 @@
                 <div>
                   <label class="text-xs font-bold text-slate-700 block mb-1.5">Request body (JSON)</label>
                   <textarea id="api-body-input" rows="8" class="w-full p-3 code-bg text-emerald-300 rounded-xl font-mono text-[11px] outline-none focus:ring-2 focus:ring-teal-500 resize-y leading-relaxed"></textarea>
+                  <p id="api-body-warning" class="hidden mt-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5"></p>
                 </div>
 
                 <div class="flex flex-wrap gap-2">
@@ -1110,14 +1125,14 @@
         <div>
           <span class="px-2.5 py-0.5 rounded-md bg-teal-100 text-teal-800 text-xs font-bold uppercase">Terminology Services</span>
           <h2 class="text-2xl font-bold text-slate-900 mt-1">NAMASTE ↔ ICD-11 TM2 Lookup</h2>
-          <p class="text-xs text-slate-500">Search by AYUSH term, Sanskrit name, or any code system. Backs the <code class="font-mono">/terminology/search</code> endpoint.</p>
+          <p class="text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">Type a diagnosis in English or Sanskrit, or a code you already have — you'll get back the matching Ayurveda (NAMASTE) code and its equivalent ICD-11 codes, side by side. No login needed to search.</p>
         </div>
 
         <div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
           <div class="flex items-stretch gap-2">
             <div class="relative flex-1">
               <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
-              <input id="terminology-search-input" type="text" oninput="performTerminologySearch()" placeholder="Search: Amlapitta, अम्लपित्तम्, NAM-AYU-0012, DA42.0 …" class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 focus:bg-white transition-all text-sm" />
+              <input id="terminology-search-input" type="text" oninput="performTerminologySearch()" placeholder="Try: Amlapitta, अम्लपित्तम्, NAM-AYU-0012, DA42.0 …" class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 focus:bg-white transition-all text-sm" />
             </div>
             <select id="terminology-stream-filter" onchange="performTerminologySearch()" class="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 text-xs font-semibold">
               <option value="">All streams</option>
@@ -1126,39 +1141,16 @@
               <option value="Unani">Unani</option>
             </select>
           </div>
-          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Quick Clinical Test Cases:</span>
-              <span class="text-[10px] text-teal-700 font-semibold">1-Click Dual Coding</span>
-            </div>
-            <div class="flex flex-wrap gap-1.5">
-              <button onclick="quickTerminologySearch('Pratishyaya')" class="px-2.5 py-1 rounded-lg bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors shadow-sm flex items-center gap-1">
-                <span>प्रतिश्यायः (Pratishyaya - ICD 2066255370)</span>
-              </button>
-              <button onclick="quickTerminologySearch('Amlapitta')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors">
-                अम्लपित्तम् (Amlapitta / Hyperacidity)
-              </button>
-              <button onclick="quickTerminologySearch('Jvara')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors">
-                ज्वरः (Jvara / Fever)
-              </button>
-              <button onclick="quickTerminologySearch('Madhumeha')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors">
-                मधुमेहः (Madhumeha / Diabetes)
-              </button>
-              <button onclick="quickTerminologySearch('Kasa')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors">
-                कासः (Kasa / Cough)
-              </button>
-              <button onclick="quickTerminologySearch('Shwasa')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors">
-                श्वासः (Shwasa / Asthma)
-              </button>
-              <button onclick="quickTerminologySearch('Sandhivata')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors">
-                सन्धिवातः (Sandhivata / Osteoarthritis)
-              </button>
-              <button onclick="quickTerminologySearch('Anukta Vyadhi')" class="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold border border-amber-300 transition-colors flex items-center gap-1">
-                <span>⚠️ अनुक्तव्याधिः (Test Curation Queue)</span>
-              </button>
-            </div>
-          </div>
+          <p class="text-[11px] text-slate-400">Not sure what a term means? Tap the <span class="material-symbols-outlined text-[13px] align-text-bottom">help</span> button in the bottom-left corner.</p>
           <div id="terminology-results" class="space-y-3"></div>
+        </div>
+
+        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
+          <span class="material-symbols-outlined text-slate-400">wifi_tethering</span>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            This search runs against codes already synced into this service — that's deliberate, so lookups stay instant and work offline.
+            To test the live connection to the WHO ICD-11 API server, open the <strong>Admin Console → System Health</strong> tab.
+          </p>
         </div>
       </section>
 
@@ -1432,6 +1424,37 @@
     </div>
   </div>
 
+  <!-- ==================== HELP / GLOSSARY MODAL ==================== -->
+  <!-- Plain-English lookup for every jargon term in the app, one tap away from anywhere. -->
+  <div id="help-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden max-h-[85vh] flex flex-col">
+      <div class="px-6 py-4 bg-teal-50 border-b border-teal-100 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-teal-700">help</span>
+          <h3 class="font-bold text-slate-900">What do these words mean?</h3>
+        </div>
+        <button onclick="closeModal('help-modal')" class="text-slate-400 hover:text-slate-700">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="p-6 space-y-3 overflow-y-auto">
+        <p class="text-xs text-slate-500 leading-relaxed">No medical or coding background needed. Here's every term used in this app, in one sentence each.</p>
+        <div id="glossary-list" class="space-y-2"></div>
+      </div>
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 shrink-0">
+        <button onclick="closeModal('help-modal'); runGuidedDemo();" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">play_circle</span> Show me instead — start the guided tour
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating "?" help button, visible on every tab -->
+  <button onclick="openModal('help-modal')" title="What do these words mean?"
+    class="fixed bottom-5 left-5 z-[55] w-12 h-12 rounded-full bg-slate-900 hover:bg-teal-700 text-white shadow-xl flex items-center justify-center transition-colors">
+    <span class="material-symbols-outlined">help</span>
+  </button>
+
   <!-- ==================== TOAST ==================== -->
   <div id="toast-stack" class="fixed bottom-5 right-5 z-[60] space-y-2 w-80 max-w-[calc(100vw-2.5rem)]"></div>
 
@@ -1488,13 +1511,21 @@
   ];
 
   // ABDM Health Information Types
+  // Each entry needs both a machine `code` (the actual FHIR/ABDM HI type value used
+  // in requests and stored records) and a human `display` label — several places in
+  // this file read t.code / t.display, so this must stay an array of objects, not
+  // plain strings.
   const HI_TYPES = [
-    "OPConsultation", "Prescription", "DiagnosticReport", "DischargeSummary",
-    "ImmunizationRecord", "HealthDocumentRecord", "WellnessRecord"
+    { code: "OPConsultation", display: "OP Consultation" },
+    { code: "Prescription", display: "Prescription" },
+    { code: "DiagnosticReport", display: "Diagnostic Report" },
+    { code: "DischargeSummary", display: "Discharge Summary" },
+    { code: "ImmunizationRecord", display: "Immunization Record" },
+    { code: "HealthDocumentRecord", display: "Health Document Record" },
+    { code: "WellnessRecord", display: "Wellness Record" }
   ];
 
   const TERMINOLOGY_DATABASE = [
-    { id: "AY-PRA-01", namasteCode: "NAM-AYU-0077", icd11Tm2Code: "TM2-AYU-R01.1", icd11MmsCode: "CA40", snomedCode: "82272006", termEnglish: "Pratishyaya", termSanskrit: "प्रतिश्यायः", ayushStream: "Ayurveda", confidence: 99, description: "Acute nasopharyngitis / common cold with nasal catarrh, mapped to WHO ICD-11 Foundation Entity 2066255370." },
     { id: "AY-AML-01", namasteCode: "NAM-AYU-0012", icd11Tm2Code: "TM2-AYU-G01.2", icd11MmsCode: "DA42.0", snomedCode: "62315008", termEnglish: "Amlapitta", termSanskrit: "अम्लपित्तम्", ayushStream: "Ayurveda", confidence: 98, description: "Clinical condition characterized by sour belching, indigestion, and burning sensation in the chest, correlating with hyperacidity or acid peptic disease." },
     { id: "AY-JVA-01", namasteCode: "NAM-AYU-0045", icd11Tm2Code: "TM2-AYU-F04.1", icd11MmsCode: "MG26", snomedCode: "386661006", termEnglish: "Jvara (Fever)", termSanskrit: "ज्वरः", ayushStream: "Ayurveda", confidence: 96, description: "Elevated body temperature accompanied by loss of appetite and body malaise, categorized by dosha predominance (Vataja, Pittaja, Kaphaja)." },
     { id: "AY-PRM-01", namasteCode: "NAM-AYU-0089", icd11Tm2Code: "TM2-AYU-M08.3", icd11MmsCode: "5A11", snomedCode: "44054006", termEnglish: "Prameha (Madhumeha)", termSanskrit: "प्रमेहः (मधुमेहः)", ayushStream: "Ayurveda", confidence: 97, description: "Metabolic disorder characterized by excessive turbidity and frequency of urine, clinically mapped to Type 2 Diabetes Mellitus." },
@@ -2197,6 +2228,40 @@
   function closeModal(id) {
     const m = document.getElementById(id);
     if (m) m.classList.add("hidden");
+  }
+
+  function openModal(id) {
+    const m = document.getElementById(id);
+    if (m) m.classList.remove("hidden");
+  }
+
+  /* ---------- Plain-English glossary (Help button, bottom-left, every tab) ---------- */
+  const GLOSSARY = [
+    { term: "ABHA", plain: "Ayushman Bharat Health Account — a patient's national health ID number, like a bank account number but for medical records." },
+    { term: "Aadhaar eKYC", plain: "Proving who you are using your Aadhaar number + a one-time code (OTP), the same way many government apps verify identity." },
+    { term: "NAMASTE", plain: "The official Indian government list of Ayurveda, Siddha and Unani diagnosis names and codes (e.g. \"Amlapitta\")." },
+    { term: "ICD-11", plain: "The World Health Organization's international list of diagnosis codes, used worldwide for medical records and insurance billing." },
+    { term: "TM2", plain: "\"Traditional Medicine Chapter 2\" — the part of ICD-11 that gives international codes to Ayurveda/Siddha/Unani diagnoses, so they mean the same thing everywhere." },
+    { term: "Dual coding", plain: "Saving one diagnosis in two languages at once: the Ayurvedic NAMASTE term and the matching ICD-11 code — so a doctor and an insurer both understand it." },
+    { term: "FHIR (R4)", plain: "A standard, shared file format for medical records, so different hospital software systems can read each other's data." },
+    { term: "Consent", plain: "The patient's explicit, revocable permission for a specific hospital to see specific records for a specific reason and time window." },
+    { term: "HIP", plain: "\"Health Information Provider\" — the hospital or clinic that holds a patient's records and offers to share them." },
+    { term: "HIU", plain: "\"Health Information User\" — the hospital or app that is requesting to read a patient's records." },
+    { term: "Care context", plain: "One specific episode of care (e.g. one visit or one diagnosis) that a hospital offers to link into a patient's record." },
+    { term: "Consent artifact", plain: "The actual signed permission slip — what was allowed, for how long, and for what purpose — created each time a hospital asks to see records." },
+    { term: "Audit log", plain: "A permanent, unchangeable list of who accessed what and when — so nothing can be quietly altered afterward." },
+    { term: "ConceptMap", plain: "A FHIR resource that says \"this NAMASTE code equals / is broader than / is related to this ICD-11 code\" — the actual translation table." },
+    { term: "SNOMED CT", plain: "Another major international clinical vocabulary, often used alongside ICD-11 for more detailed clinical descriptions." }
+  ];
+
+  function renderGlossary() {
+    const host = document.getElementById("glossary-list");
+    if (!host) return;
+    host.innerHTML = GLOSSARY.map(function (g) {
+      return '<div class="p-3 bg-slate-50 border border-slate-100 rounded-xl">'
+        + '<p class="font-bold text-sm text-slate-900">' + escapeHtml(g.term) + '</p>'
+        + '<p class="text-xs text-slate-600 leading-relaxed mt-0.5">' + escapeHtml(g.plain) + '</p></div>';
+    }).join("");
   }
 
   function switchAuthTab(which) {
@@ -3912,6 +3977,23 @@
     return { status: status, body: body };
   }
 
+  // The sample body for consentId-driven endpoints ships with the placeholder
+  // "consent-…" until a real consent exists in this session (onApiEndpointChange
+  // swaps it for a real id the moment one is available). If a request still goes
+  // out with that placeholder — or any other empty/obviously-fake id — sending it
+  // to Firebase produces a raw, confusing "permission_denied" (rules can't match
+  // a document that doesn't exist). Catching that here first, before we ever hit
+  // the database, turns that into an actionable validation error instead.
+  function requireRealConsentId(cid) {
+    if (!cid || typeof cid !== "string" || cid.indexOf("…") !== -1 || cid.trim() === "" || cid === "consent-") {
+      return apiError(422, "VALIDATION_FAILED",
+        "consentId still has the sample placeholder value. Raise a consent request in the Hospital tab (or Patient tab), " +
+        "then copy its real consentId from the Consent Registry / My Consents list — or just re-open this endpoint once " +
+        "you have a consent, and the console will fill in a real id for you.");
+    }
+    return null;
+  }
+
   const API_ENDPOINTS = [
     {
       id: "metadata",
@@ -4135,6 +4217,8 @@
       sample: { consentId: "consent-…" },
       handler: function (ctx) {
         if (!ctx.body.consentId) return Promise.resolve(apiError(422, "VALIDATION_FAILED", "consentId is required."));
+        const guard = requireRealConsentId(ctx.body.consentId);
+        if (guard) return Promise.resolve(guard);
         return fbDb.ref("consents/" + ctx.body.consentId).once("value").then(function (snap) {
           if (!snap.exists()) return apiError(404, "CONSENT_NOT_FOUND", "No consent with that id is visible to this facility.");
           const c = snap.val();
@@ -4155,7 +4239,11 @@
             }
           };
         }).catch(function (err) {
-          return apiError(403, "FORBIDDEN", "The consent manager refused this read: " + err.message);
+          return apiError(403, "FORBIDDEN",
+            "The consent manager refused this read.",
+            "This account (patient or hospital) isn't a party to consent " + ctx.body.consentId + ", or the id doesn't exist. " +
+            "Database rules only let the patient who owns a consent, or the hospital that requested it, read that record — " +
+            "raw reason: " + err.message);
         });
       }
     },
@@ -4172,6 +4260,8 @@
       handler: function (ctx) {
         const cid = ctx.body.consentId;
         if (!cid) return Promise.resolve(apiError(422, "VALIDATION_FAILED", "consentId is required."));
+        const guard = requireRealConsentId(cid);
+        if (guard) return Promise.resolve(guard);
 
         return fbDb.ref("consents/" + cid).once("value").then(function (snap) {
           if (!snap.exists()) throw new Error("CONSENT_NOT_FOUND");
@@ -4235,7 +4325,9 @@
           if (err && err.message === "CONSENT_NOT_FOUND") {
             return apiError(404, "CONSENT_NOT_FOUND", "No consent with that id is visible to this facility.");
           }
-          return apiError(403, "FORBIDDEN", "The consent manager refused this read: " + err.message);
+          return apiError(403, "FORBIDDEN",
+            "The consent manager refused this read.",
+            "This account isn't a party to consent " + cid + ", or the id doesn't exist — raw reason: " + err.message);
         });
       }
     },
@@ -4252,6 +4344,8 @@
       handler: function (ctx) {
         const cid = ctx.body.consentId;
         if (!cid) return Promise.resolve(apiError(422, "VALIDATION_FAILED", "consentId is required."));
+        const guard = requireRealConsentId(cid);
+        if (guard) return Promise.resolve(guard);
         return fbDb.ref("consents/" + cid).once("value").then(function (snap) {
           if (!snap.exists()) return apiError(404, "CONSENT_NOT_FOUND", "No consent with that id is visible to you.");
           const c = snap.val();
@@ -4479,11 +4573,23 @@
 
     const sample = JSON.parse(JSON.stringify(ep.sample || {}));
     if (sample.abhaAddress && state.abha) sample.abhaAddress = state.abha.abhaAddress;
+    let hasRealConsent = true;
     if (sample.consentId) {
       const candidate = state.hipConsents[0] || state.patientConsents[0];
       if (candidate) sample.consentId = candidate.consentId;
+      else hasRealConsent = false;
     }
     document.getElementById("api-body-input").value = JSON.stringify(sample, null, 2);
+
+    const warning = document.getElementById("api-body-warning");
+    if (warning) {
+      if (sample.consentId && !hasRealConsent) {
+        warning.classList.remove("hidden");
+        warning.innerText = "⚠ No consent exists in this session yet, so consentId below is still a placeholder — this call will fail. Raise a consent request in the Hospital or Patient tab first, then reopen this endpoint.";
+      } else {
+        warning.classList.add("hidden");
+      }
+    }
 
     const bearer = document.getElementById("api-bearer-input");
     if (bearer) bearer.value = state.user ? ("Bearer fb-session:" + state.user.uid) : "— not signed in —";
@@ -4612,138 +4718,6 @@
   }
 
   /* ---------- 9. TERMINOLOGY & FHIR EXPLORER ---------- */
-
-  
-  /* ============================================================
-     AYURFHIR ENHANCEMENTS: WHO ICD-11 & 1-CLICK DEMO HELPERS
-     ============================================================ */
-
-  window.quickStartDemoClinician = function () {
-    state.user = {
-      uid: "demo-clinician-rajesh",
-      email: "dr.rajesh@nia-ayush.gov.in",
-      displayName: "Dr. Rajesh Sharma (Ayush Clinician)",
-      role: "doctor"
-    };
-    state.hip = {
-      hipId: "HIP-NIA-JAIPUR",
-      hipName: "National Institute of Ayurveda Hospital, Jaipur",
-      state: "Rajasthan",
-      type: "Ayurveda Teaching Hospital"
-    };
-    state.abha = {
-      abhaNumber: "91-4821-3920-1102",
-      abhaAddress: "anjali@sbx",
-      fullName: "Anjali R. Deshmukh",
-      gender: "F",
-      dob: "1994-08-15",
-      mobile: "9876543210"
-    };
-    state.abhaKey = "91482139201102";
-
-    // Update UI headers
-    const pill = document.getElementById("abha-header-pill");
-    if (pill) {
-      pill.classList.remove("hidden");
-      const addr = document.getElementById("abha-header-address");
-      if (addr) addr.innerText = "anjali@sbx (Active Patient)";
-    }
-    const authText = document.getElementById("header-auth-btn-text");
-    if (authText) authText.innerText = "Dr. Rajesh Sharma";
-    const signOutBtn = document.getElementById("header-signout-btn");
-    if (signOutBtn) signOutBtn.classList.remove("hidden");
-
-    showToast("Clinician Session Active: Dr. Rajesh Sharma (NIA Hospital)", "success");
-    switchTab("hospital");
-  };
-
-  window.testLiveWhoIcdEntity = async function () {
-    const host = document.getElementById("who-icd-live-result");
-    if (!host) return;
-
-    host.innerHTML = '<div class="p-4 bg-slate-950/80 rounded-xl border border-teal-500/40 text-xs font-mono text-teal-400 animate-pulse">'
-      + 'Sending live request to WHO ICD-11 container at http://10.21.91.147/icd/entity/2066255370 ...</div>';
-
-    try {
-      const res = await fetch("/icd/entity/2066255370", {
-        headers: {
-          "accept": "application/json",
-          "API-Version": "v2",
-          "Accept-Language": "en"
-        }
-      });
-      const data = await res.json();
-      const title = (data.title && (data.title["@value"] || data.title)) || "Acute nasopharyngitis";
-
-      host.innerHTML = '<div class="p-4 bg-slate-950/90 rounded-xl border border-emerald-500/50 space-y-3">'
-        + '<div class="flex items-center justify-between">'
-        + '  <div class="flex items-center gap-2">'
-        + '    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-xs font-bold">HTTP 200 OK</span>'
-        + '    <span class="text-sm font-bold text-white">' + escapeHtml(title) + '</span>'
-        + '  </div>'
-        + '  <span class="text-xs font-mono text-slate-400">Foundation Entity: 2066255370</span>'
-        + '</div>'
-        + '<div class="p-3 bg-teal-950/40 rounded-lg border border-teal-500/30 text-xs space-y-1">'
-        + '  <p class="font-bold text-teal-300">Dual-Coding Alignment:</p>'
-        + '  <p class="text-slate-200">Ayurveda Term: <strong>Pratishyaya (प्रतिश्यायः)</strong> &middot; Code: <code class="font-mono text-teal-300">NAM-AYU-0077</code></p>'
-        + '  <p class="text-slate-200">ICD-11 TM2 Code: <code class="font-mono text-emerald-300">TM2-AYU-R01.1</code> &middot; MMS Code: <code class="font-mono text-indigo-300">CA40</code></p>'
-        + '  <p class="text-[11px] text-slate-400">Equivalence: <strong>equivalent</strong> (Confidence: 99%) &middot; Provenance: WHO-Ayush TM2 Collaboration</p>'
-        + '</div>'
-        + '<div class="flex gap-2">'
-        + '  <button onclick="recordDualCodedDiagnosis(\'NAM-AYU-0077\', \'Pratishyaya\')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow flex items-center gap-1">'
-        + '    <span class="material-symbols-outlined text-sm">assignment_turned_in</span> Record into FHIR Problem List'
-        + '  </button>'
-        + '  <button onclick="toggleWhoRawJson()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-colors">'
-        + '    Toggle Raw JSON'
-        + '  </button>'
-        + '</div>'
-        + '<pre id="who-raw-json" class="hidden p-3 bg-slate-900 rounded-lg text-[10px] font-mono text-slate-300 overflow-x-auto max-h-60">'
-        + escapeHtml(JSON.stringify(data, null, 2))
-        + '</pre>'
-        + '</div>';
-    } catch (err) {
-      host.innerHTML = '<div class="p-4 bg-red-950/40 rounded-xl border border-red-500/40 text-xs text-red-300">'
-        + 'Failed to fetch from ICD-11 container: ' + escapeHtml(err.message) + '</div>';
-    }
-  };
-
-  window.toggleWhoRawJson = function () {
-    const el = document.getElementById("who-raw-json");
-    if (el) el.classList.toggle("hidden");
-  };
-
-  window.copyWhoCurlSnippet = function () {
-    const snippet = "curl -X 'GET' 'http://10.21.91.147/icd/entity/2066255370' -H 'accept: application/json' -H 'API-Version: v2' -H 'Accept-Language: en'";
-    navigator.clipboard.writeText(snippet).then(() => {
-      showToast("cURL command copied to clipboard!", "success");
-    });
-  };
-
-  window.quickTerminologySearch = function (term) {
-    const input = document.getElementById("terminology-search-input");
-    if (input) {
-      input.value = term;
-      performTerminologySearch();
-    }
-  };
-
-  window.recordDualCodedDiagnosis = async function (code, termName) {
-    try {
-      const res = await fetch("/Bundle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: code,
-          patientName: state.abha ? state.abha.fullName : "Anjali R. Deshmukh"
-        })
-      });
-      const data = await res.json();
-      showToast("FHIR Condition saved dual-coded into Problem List! ID: " + (data.entry && data.entry[0]?.resource?.id), "success");
-      switchTab("explorer");
-    } catch (err) {
-      showToast("Error recording dual-coded condition: " + err.message, "error");
-    }
-  };
 
   function performTerminologySearch() {
     const q = (document.getElementById("terminology-search-input").value || "").trim().toLowerCase();
@@ -5180,11 +5154,11 @@
   function bindGlobalHandlers() {
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
-      ["auth-modal", "consent-modal", "record-modal", "self-record-modal", "apikey-modal"].forEach(closeModal);
+      ["auth-modal", "consent-modal", "record-modal", "self-record-modal", "apikey-modal", "help-modal"].forEach(closeModal);
     });
 
     // Clicking a modal's backdrop (but not its panel) dismisses it.
-    ["auth-modal", "consent-modal", "record-modal", "self-record-modal", "apikey-modal"].forEach(function (id) {
+    ["auth-modal", "consent-modal", "record-modal", "self-record-modal", "apikey-modal", "help-modal"].forEach(function (id) {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener("click", function (e) { if (e.target === el) closeModal(id); });
@@ -5210,6 +5184,7 @@
     renderExplorer();
     performTerminologySearch();
     renderSecurityNotes();
+    renderGlossary();
     renderAll();
     bindGlobalHandlers();
     switchTab("home");
@@ -5230,7 +5205,7 @@
   const EXPORTS = {
     state: state, ABDM_CONFIG: ABDM_CONFIG, ABDM_ADAPTER: ABDM_ADAPTER, ABDM_GATEWAY: ABDM_GATEWAY,
     switchTab: switchTab, toggleMobileMenu: toggleMobileMenu,
-    openAuthModal: openAuthModal, closeModal: closeModal, switchAuthTab: switchAuthTab,
+    openAuthModal: openAuthModal, closeModal: closeModal, openModal: openModal, switchAuthTab: switchAuthTab,
     handleSignIn: handleSignIn, handleSignUp: handleSignUp, handleSignOut: handleSignOut,
     useDemoAccount: useDemoAccount,
     onAadhaarInput: onAadhaarInput, fillTestAadhaar: fillTestAadhaar,
