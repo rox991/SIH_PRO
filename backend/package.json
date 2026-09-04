@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "node --watch src/app.js",
     "start": "node src/app.js",
-    "test": "node --test"
+    "test": "FIREBASE_SERVICE_ACCOUNT_JSON= FIREBASE_SERVICE_ACCOUNT_PATH= node --test"
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "firebase-admin": "^14.3.0"
   }
 }
