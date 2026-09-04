@@ -195,6 +195,11 @@
         <span>Terminology</span>
       </a>
 
+      <a href="#icd11" onclick="switchAdminTab('icd11')" id="nav-admin-icd11" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined text-lg text-teal-600">coronavirus</span>
+        <span class="font-semibold text-slate-900">ICD-11 Disease Search</span>
+      </a>
+
       <a href="#mappings" onclick="switchAdminTab('mappings')" id="nav-admin-mappings" class="admin-nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all">
         <span class="material-symbols-outlined text-lg">alt_route</span>
         <span>Mappings</span>
@@ -409,6 +414,11 @@
         </div>
       </section>
 
+      <!-- ICD-11 DISEASE SEARCH: live WHO ICD-API browser, rendered by /shared/icd-explorer.js -->
+      <section id="admin-tab-icd11" class="admin-tab-content hidden space-y-6">
+        <div id="icd-explorer-root"></div>
+      </section>
+
       <!-- MAPPINGS -->
       <section id="admin-tab-mappings" class="admin-tab-content hidden space-y-6">
         <h2 class="text-xl font-bold text-slate-900">Cross-Standard Mappings</h2>
@@ -536,15 +546,8 @@
 
   <!-- JAVASCRIPT ENGINE -->
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyA2l2wuVvBJ8i1SBPFIPOGz2JwWDDGjAqk",
-      authDomain: "namaste-1e265.firebaseapp.com",
-      databaseURL: "https://namaste-1e265-default-rtdb.firebaseio.com",
-      projectId: "namaste-1e265",
-      storageBucket: "namaste-1e265.firebasestorage.app",
-      messagingSenderId: "59383012302",
-      appId: "1:59383012302:web:9f2d37b84891bc4225e99f"
-    };
+    // The Firebase Web config is served by the backend (GET /api/v1/auth/config) from
+    // backend/.env and applied in /shared/firebase-auth.js — it is not hardcoded here.
 
     // Same reference dataset the user portal (index.html) uses, so the
     // Terminology and Mappings tabs show real, consistent data instead of
@@ -576,8 +579,7 @@
       apiRequests: [],
       users: [],
       auditLogs: [],
-      firebaseApp: null,
-      dbRef: null
+      refreshTimer: null
     };
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -588,78 +590,10 @@
       renderAdminAudit();
     });
 
+    // Implemented in /shared/admin-api.js. Firebase Auth signs the admin in; the backend
+    // verifies the ID token and reports the role. The browser no longer reads the role itself.
     function initAdminFirebase() {
-      try {
-        // Reuse the existing app instance if index.html already initialized it
-        // in this browser session (same Firebase project = same Auth session).
-        adminState.firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
-        adminState.dbRef = firebase.database().ref();
-
-        // This is the piece that was missing: without this listener, admin.html
-        // never knew whether a real Firebase user was signed in, so it could not
-        // check their role and always fell back to the static/local login box.
-        firebase.auth().onAuthStateChanged(async (user) => {
-          if (!user) {
-            showAdminLoginForms();
-            return;
-          }
-          try {
-            const snap = await adminState.dbRef.child(`users/${user.uid}`).once('value');
-            const profile = snap.exists() ? snap.val() : null;
-            const role = profile && profile.role ? profile.role : 'user';
-
-            if (role === 'admin') {
-              adminState.currentUser = {
-                email: user.email,
-                uid: user.uid,
-                role: 'admin',
-                name: (profile && profile.displayName) || user.email.split('@')[0]
-              };
-              grantAdminAccess();
-            } else {
-              denyAdminAccess(user.email);
-            }
-          } catch (err) {
-            console.error('Role lookup failed:', err);
-            denyAdminAccess(user.email);
-          }
-        });
-
-        // This is the second missing piece: index.html's sendMappingRequest()
-        // pushes every API call into the `apiRequests/` RTDB node, but admin.html
-        // never attached a listener to that node, so nothing ever showed up here.
-        adminState.dbRef.child('apiRequests').limitToLast(200).on('value', (snapshot) => {
-          const data = snapshot.val() || {};
-          adminState.apiRequests = Object.values(data).sort((a, b) => (b.__ts || 0) - (a.__ts || 0));
-          renderOverviewRequests();
-          renderFullRequestsTable();
-          renderLiveTraffic();
-          updateOverviewStats();
-          updateHealthCounts();
-        }, (err) => {
-          console.error('apiRequests listener error (check DB rules):', err);
-        });
-
-        // Powers the "Users & Roles" tab — requires the admin-list read
-        // rule on /users in database.rules.json.
-        adminState.dbRef.child('users').on('value', (snapshot) => {
-          const data = snapshot.val() || {};
-          adminState.users = Object.entries(data).map(([uid, profile]) => ({ uid, ...profile }));
-          renderUsersAndRoles();
-          updateHealthCounts();
-        }, (err) => {
-          console.error('users listener error (check DB rules):', err);
-        });
-
-        // Firebase's built-in connection-state path, used for System Health.
-        firebase.database().ref('.info/connected').on('value', (snap) => {
-          const connected = snap.val() === true;
-          setRtdbStatus(connected);
-        });
-
-      } catch (err) {
-        console.warn("Admin Firebase init error:", err);
-      }
+      if (window.AyurAdmin) window.AyurAdmin.start();
     }
 
     function setRtdbStatus(connected) {
@@ -667,7 +601,7 @@
       const text = document.getElementById('rtdb-status-text');
       const pill = document.getElementById('rtdb-status-pill');
       const health = document.getElementById('health-rtdb');
-      if (text) text.innerText = connected ? 'Realtime: Connected' : 'Realtime: Disconnected';
+      if (text) text.innerText = connected ? 'Backend: Connected' : 'Backend: Unreachable';
       if (pill) pill.className = `flex items-center gap-1.5 px-3 py-1 rounded-full font-medium ${connected ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`;
       if (dot) dot.className = `w-2 h-2 rounded-full ${connected ? 'bg-emerald-500 animate-ping' : 'bg-red-500'}`;
       if (health) {
@@ -681,9 +615,9 @@
       const userCountEl = document.getElementById('health-user-count');
       const reqCountEl = document.getElementById('health-request-count');
       if (authEl) {
-        const signedIn = firebase.auth && firebase.auth().currentUser;
+        const signedIn = Boolean(adminState.currentUser && !adminState.currentUser.isDemo);
         authEl.innerText = signedIn ? 'Active' : (adminState.currentUser ? 'Demo Mode' : 'None');
-        authEl.className = `text-lg font-extrabold ${signedIn || adminState.currentUser ? 'text-emerald-600' : 'text-slate-400'}`;
+        authEl.className = `text-lg font-extrabold ${adminState.currentUser ? 'text-emerald-600' : 'text-slate-400'}`;
       }
       if (userCountEl) userCountEl.innerText = adminState.users.length.toLocaleString();
       if (reqCountEl) reqCountEl.innerText = adminState.apiRequests.length.toLocaleString();
@@ -745,58 +679,19 @@
       }
     }
 
-    async function handleAdminSignIn(e) {
-      e.preventDefault();
-      const email = document.getElementById('admin-signin-email').value;
-      const pass = document.getElementById('admin-signin-password').value;
-
-      try {
-        // Sign in against the SAME Firebase Auth project index.html uses.
-        // The onAuthStateChanged listener in initAdminFirebase() fires next,
-        // looks up this uid's role in users/{uid}, and grants or denies access.
-        await firebase.auth().signInWithEmailAndPassword(email, pass);
-      } catch (err) {
-        showAdminAuthError("Sign In Error: " + err.message);
-      }
-    }
-
-    async function handleAdminSignUp(e) {
-      e.preventDefault();
-      const name = document.getElementById('admin-signup-name').value;
-      const email = document.getElementById('admin-signup-email').value;
-      const pass = document.getElementById('admin-signup-password').value;
-
-      try {
-        const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
-        // Write the role directly as 'admin' since this form is specifically
-        // the admin registration form. onAuthStateChanged will pick this up
-        // and grant access automatically once the write completes.
-        await adminState.dbRef.child(`users/${cred.user.uid}`).set({
-          displayName: name,
-          email: email,
-          role: 'admin',
-          createdAt: firebase.database.ServerValue.TIMESTAMP
-        });
-      } catch (err) {
-        showAdminAuthError("Sign Up Error: " + err.message);
-      }
-    }
+    // All three delegate to /shared/admin-api.js.
+    function handleAdminSignIn(e) { e.preventDefault(); return window.AyurAdmin.signIn(); }
+    function handleAdminSignUp(e) { e.preventDefault(); return window.AyurAdmin.signUp(); }
+    function handleAdminLogout() { return window.AyurAdmin.signOut(); }
 
     function enableDemoAdminSession() {
-      // Local-only prototype bypass — does NOT touch Firebase Auth or the
-      // database, so it never appears as a "real" signed-in user anywhere.
-      adminState.currentUser = { email: "admin@demo.gov.in", role: "admin", name: "Demo Admin" };
+      // Local-only prototype bypass. It never touches Firebase Auth, so the backend still
+      // treats this browser as unauthenticated — the live Users and Requests tabs stay empty.
+      adminState.currentUser = { email: "admin@demo.gov.in", role: "admin", name: "Demo Admin", isDemo: true };
       document.getElementById('admin-user-display').innerText = "Demo Admin";
       document.getElementById('admin-user-role').innerText = "Role: ADMIN (Offline Demo)";
       document.getElementById('auth-guard-modal').classList.add('hidden');
-    }
-
-    function handleAdminLogout() {
-      adminState.currentUser = null;
-      firebase.auth().signOut().catch((err) => console.error('Logout failed:', err));
-      document.getElementById('admin-user-display').innerText = '';
-      document.getElementById('admin-user-role').innerText = '';
-      showAdminLoginForms();
+      updateHealthCounts();
     }
 
     const ADMIN_TAB_TITLES = {
@@ -804,6 +699,7 @@
       requests: "Live API Request Monitor",
       traffic: "Live Traffic",
       terminology: "Terminology Catalog",
+      icd11: "WHO ICD-11 Disease Search",
       mappings: "Cross-Standard Mappings",
       fhir: "FHIR Resources",
       users: "Users & Roles",
@@ -829,6 +725,8 @@
       const titleEl = document.getElementById('admin-page-title');
       if (titleEl && ADMIN_TAB_TITLES[tabId]) titleEl.innerText = ADMIN_TAB_TITLES[tabId];
 
+      // The ICD-11 browser talks to a live API, so it builds itself on first open, not on load.
+      if (tabId === 'icd11' && window.mountIcdExplorer) window.mountIcdExplorer('icd-explorer-root');
       if (tabId === 'traffic') renderLiveTraffic();
       if (tabId === 'users') renderUsersAndRoles();
       if (tabId === 'health') updateHealthCounts();
@@ -953,14 +851,9 @@
       }).join('');
     }
 
+    // Implemented in /shared/admin-api.js — the write goes through an admin-only backend route.
     async function toggleUserRole(uid, newRole) {
-      if (!adminState.dbRef) return;
-      if (!confirm(`Set this user's role to "${newRole}"?`)) return;
-      try {
-        await adminState.dbRef.child(`users/${uid}/role`).set(newRole);
-      } catch (err) {
-        alert('Could not update role: ' + err.message + '\n(This write is blocked for non-admins by database.rules.json.)');
-      }
+      return window.AyurAdmin.setRole(uid, newRole);
     }
 
     function renderLiveTraffic() {
@@ -1017,6 +910,7 @@
       document.getElementById(id).classList.add('hidden');
     }
   </script>
+  <script type="module" src="/shared/icd-explorer.js"></script>
   <script type="module" src="/shared/admin-api.js"></script>
 </body>
 </html>

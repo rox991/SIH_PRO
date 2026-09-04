@@ -11,7 +11,7 @@ export function createApiController({ terminology, fhir, consent, abdm, firebase
           : fhir.toCondition({ patientId: req.body.emrPatientId, concept: mapped.concept });
         const response = { status: 200, requestId: `REQ-${crypto.randomUUID().slice(0, 8)}`, message: 'Demo terminology mapping executed', source: 'demo', mapping: mapped.mapping, fhirResource };
         // Store a minimal operational log; do not retain the full patient request/response payload.
-        await firebase.logMappingRequest({ requestId: response.requestId, userUid: req.user.uid, endpoint: '/api/v1/terminology/map', status: 200, namasteCode: mapped.concept.namasteCode, createdAt: new Date().toISOString() });
+        await firebase.logMappingRequest({ requestId: response.requestId, userUid: req.user?.uid || 'anonymous', userEmail: req.user?.email || 'anonymous', endpoint: '/api/v1/terminology/map', status: 200, namasteCode: mapped.concept.namasteCode, createdAt: new Date().toISOString() });
         res.json(response);
       } catch (error) { next(error); }
     },

@@ -109,6 +109,11 @@
         <span>Terminology Search</span>
       </a>
 
+      <a href="#icd11" onclick="switchTab('icd11')" id="nav-icd11" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
+        <span class="material-symbols-outlined text-xl text-teal-600">coronavirus</span>
+        <span class="font-semibold text-slate-900">ICD-11 Disease Search</span>
+      </a>
+
       <a href="#explorer" onclick="switchTab('explorer')" id="nav-explorer" class="nav-item flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-medium text-sm transition-all">
         <span class="material-symbols-outlined text-xl text-slate-500">dataset_linked</span>
         <span>EMR Resource Explorer</span>
@@ -209,6 +214,9 @@
               <button onclick="switchTab('terminology')" class="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg flex items-center gap-2">
                 Launch Terminology Search
                 <span class="material-symbols-outlined text-lg">search</span>
+              </button>
+              <button onclick="switchTab('icd11')" class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl text-sm transition-all border border-white/20 flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">coronavirus</span> Search ICD-11 Diseases
               </button>
               <button onclick="switchTab('api-integration')" class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl text-sm transition-all border border-white/20 flex items-center gap-2">
                 View EMR API Generator
@@ -393,6 +401,11 @@
       </section>
 
       <!-- ================= PAGE 4: RESOURCE EXPLORER ================= -->
+      <!-- ICD-11 DISEASE SEARCH: live WHO ICD-API browser, rendered by /shared/icd-explorer.js -->
+      <section id="tab-icd11" class="tab-content hidden space-y-6">
+        <div id="icd-explorer-root"></div>
+      </section>
+
       <section id="tab-explorer" class="tab-content hidden space-y-6">
         <div>
           <h2 class="text-2xl font-bold text-slate-900">EMR FHIR R4 Resource Explorer</h2>
@@ -577,17 +590,17 @@
           <label class="font-bold text-slate-700 block mb-1">Password</label>
           <input id="signup-password" type="password" required minlength="6" placeholder="At least 6 characters" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600" />
         </div>
-        <div>
-          <label class="font-bold text-slate-700 block mb-1">Account Role</label>
-          <select id="signup-role" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-teal-600 font-semibold text-slate-800">
-            <option value="user" selected>Practitioner / User (User Portal Only)</option>
-            <option value="admin">System Admin (Access Both User & Admin Console)</option>
-          </select>
+        <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600">
+          <span class="font-bold text-slate-700">Account Role:</span> Practitioner. Roles are assigned
+          server-side — admin access cannot be self-selected here.
         </div>
         <button type="submit" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors">
           Create Account
         </button>
       </form>
+
+      <p id="auth-error" class="hidden text-xs font-semibold text-center text-red-600"></p>
+      <p id="auth-config-warning" class="hidden text-[11px] text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5"></p>
 
       <div class="pt-2 border-t border-slate-100 text-center">
         <button onclick="useDemoAccount()" class="text-xs text-teal-600 font-semibold hover:underline">
@@ -685,15 +698,8 @@
 
   <!-- ==================== JAVASCRIPT APPLICATION ENGINE ==================== -->
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyA2l2wuVvBJ8i1SBPFIPOGz2JwWDDGjAqk",
-      authDomain: "namaste-1e265.firebaseapp.com",
-      databaseURL: "https://namaste-1e265-default-rtdb.firebaseio.com",
-      projectId: "namaste-1e265",
-      storageBucket: "namaste-1e265.firebasestorage.app",
-      messagingSenderId: "59383012302",
-      appId: "1:59383012302:web:9f2d37b84891bc4225e99f"
-    };
+    // The Firebase Web config is no longer hardcoded here. It is served by the backend from
+    // backend/.env via GET /api/v1/auth/config, and applied in /shared/firebase-auth.js.
 
     // Comprehensive 12+ AYUSH Concepts Dataset
     const TERMINOLOGY_DATABASE = [
@@ -714,9 +720,7 @@
       currentUser: { name: "Guest Practitioner", email: "guest@ayurfhir-demo.gov.in", role: "user", isDemo: true },
       trafficCount: 1248,
       searchCount: 492,
-      activities: [],
-      firebaseApp: null,
-      dbRef: null
+      activities: []
     };
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -726,43 +730,10 @@
       updateApiGeneratorPayload();
     });
 
+    // Implemented in /shared/patient-api.js, which owns the Firebase Auth wiring.
+    // Roles arrive from the backend's verified session, not from a browser-side database read.
     function initFirebase() {
-      try {
-        if (!firebase.apps.length) {
-          state.firebaseApp = firebase.initializeApp(firebaseConfig);
-        } else {
-          state.firebaseApp = firebase.app();
-        }
-        state.dbRef = firebase.database().ref();
-
-        // Listen to Auth state
-        firebase.auth().onAuthStateChanged(async (user) => {
-          if (user) {
-            let role = "user";
-            let name = user.email.split('@')[0];
-
-            try {
-              // Role comes ONLY from the users/{uid} record in the database.
-              // (Guessing "admin" from the email address was removed — it let
-              // anyone with "admin" in their email address self-promote.)
-              const snap = await state.dbRef.child(`users/${user.uid}`).once('value');
-              if (snap.exists()) {
-                const profile = snap.val();
-                role = profile.role || role;
-                name = profile.displayName || name;
-              }
-            } catch (e) {}
-
-            state.currentUser = { name: name, email: user.email, role: role, uid: user.uid, isDemo: false };
-          } else {
-            state.currentUser = { name: "Guest Practitioner", email: "guest@ayurfhir-demo.gov.in", role: "user", isDemo: true };
-          }
-          updateUserUI();
-        });
-
-      } catch (err) {
-        console.warn("Firebase initialization error:", err);
-      }
+      if (window.AyurAuth) window.AyurAuth.start();
     }
 
     function updateUserUI() {
@@ -809,59 +780,11 @@
       }
     }
 
-    async function handleSignIn(e) {
-      e.preventDefault();
-      const email = document.getElementById('signin-email').value;
-      const pass = document.getElementById('signin-password').value;
-
-      try {
-        await firebase.auth().signInWithEmailAndPassword(email, pass);
-        closeModal('modal-auth');
-        alert(`Signed in successfully as ${email}!`);
-      } catch (err) {
-        alert("Sign In Error: " + err.message);
-      }
-    }
-
-    async function handleSignUp(e) {
-      e.preventDefault();
-      const name = document.getElementById('signup-name').value;
-      const email = document.getElementById('signup-email').value;
-      const pass = document.getElementById('signup-password').value;
-      const role = document.getElementById('signup-role').value;
-
-      try {
-        const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
-        const uid = cred.user.uid;
-
-        await state.dbRef.child(`users/${uid}`).set({
-          displayName: name,
-          email: email,
-          role: role,
-          createdAt: firebase.database.ServerValue.TIMESTAMP
-        });
-
-        closeModal('modal-auth');
-        alert(`Account created successfully as ${role.toUpperCase()}!`);
-      } catch (err) {
-        alert("Sign Up Error: " + err.message);
-      }
-    }
-
-    function handleSignOut() {
-      firebase.auth().signOut();
-      useDemoAccount();
-      alert('Signed out of Firebase Auth.');
-    }
-
-    function useDemoAccount() {
-      if (firebase.auth && firebase.auth().currentUser) {
-        firebase.auth().signOut();
-      }
-      state.currentUser = { name: "Guest Practitioner", email: "guest@ayurfhir-demo.gov.in", role: "user", isDemo: true };
-      updateUserUI();
-      closeModal('modal-auth');
-    }
+    // Sign in / sign up / sign out are all delegated to /shared/patient-api.js.
+    function handleSignIn(e) { e.preventDefault(); return window.AyurAuth.signIn(); }
+    function handleSignUp(e) { e.preventDefault(); return window.AyurAuth.signUp(); }
+    function handleSignOut() { return window.AyurAuth.signOut(); }
+    function useDemoAccount() { return window.AyurAuth.useGuest(); }
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -877,6 +800,9 @@
       if (activeNav) {
         activeNav.classList.add('bg-teal-50', 'text-teal-900', 'font-bold');
       }
+
+      // The ICD-11 browser talks to a live API, so it builds itself on first open, not on load.
+      if (tabId === 'icd11' && window.mountIcdExplorer) window.mountIcdExplorer('icd-explorer-root');
     }
 
     // Rich Interactive Terminology Search Function
@@ -966,50 +892,10 @@
       document.getElementById('api-sandbox-input').value = JSON.stringify(payload, null, 2);
     }
 
+    // Mapping runs on the backend, which logs the request against the signed-in uid.
+    // The browser no longer writes to the database directly.
     async function sendMappingRequest(payload) {
-      let idToken = null;
-      if (firebase.auth && firebase.auth().currentUser) {
-        try { idToken = await firebase.auth().currentUser.getIdToken(); } catch (e) {}
-      }
-
-      const headers = { "Content-Type": "application/json" };
-      if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
-
-      const requestId = `REQ-${Math.floor(Math.random() * 90000 + 10000)}`;
-
-      let resultPayload = {
-        "status": 200,
-        "requestId": requestId,
-        "message": "EMR Mapping Successfully Executed",
-        "timestamp": new Date().toISOString(),
-        "result": {
-          "emrPatientId": payload.emrPatientId || "PAT-9942",
-          "ayushSystem": payload.ayushSystem || "Ayurveda",
-          "legacyTerm": payload.legacyTerm || "Amlapitta",
-          "namasteCode": payload.namasteCode || "NAM-AYU-0012",
-          "icd11Tm2Code": "TM2-AYU-G01.2",
-          "icd11MmsCode": "DA42.0",
-          "fhirResourceType": payload.outputFormat === "FHIR_R4_CONCEPTMAP" ? "ConceptMap" : "Condition",
-          "fhirPayloadUrl": `https://YOUR-BACKEND-DOMAIN/api/v1/fhir/Condition/${requestId}`
-        }
-      };
-
-      if (state.dbRef) {
-        state.dbRef.child('apiRequests').push({
-          requestId: requestId,
-          userEmail: state.currentUser.email,
-          userUid: state.currentUser.uid || null,
-          timestamp: new Date().toLocaleTimeString(),
-          __ts: Date.now(),
-          endpoint: "/api/v1/map",
-          method: "POST",
-          status: 200,
-          legacyTerm: payload.legacyTerm || "Amlapitta",
-          namasteCode: payload.namasteCode || "NAM-AYU-0012",
-          requestBody: payload,
-          responseBody: resultPayload
-        });
-      }
+      const resultPayload = await window.AyurApi.mapTerminology(payload);
 
       state.trafficCount++;
       document.getElementById('header-traffic-count').innerText = state.trafficCount.toLocaleString();
@@ -1083,6 +969,7 @@
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
     function toggleMobileMenu() { document.getElementById('sidebar-nav').classList.toggle('hidden'); }
   </script>
+  <script type="module" src="/shared/icd-explorer.js"></script>
   <script type="module" src="/shared/patient-api.js"></script>
 </body>
 </html>

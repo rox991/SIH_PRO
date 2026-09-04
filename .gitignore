@@ -1,3 +1,8 @@
 /admin.html
 /index.html
-/node_modules
+node_modules/
+.env
+.env.local
+secrets/
+*service-account*.json
+npm-debug.log*
