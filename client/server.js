@@ -159,12 +159,15 @@ app.post(['/Bundle', '/Condition'], (req, res) => {
   });
 });
 
+// The root portal is the canonical Firestore-backed patient, hospital, and
+// insurance workspace. Keep the client server on that same implementation
+// instead of serving the legacy Realtime Database copy in client/index.html.
+app.get(['/', '/index.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
+
 // 5. Serve static files (index.html, admin.html, etc.)
 app.use(express.static(__dirname));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
 
 // Start Server cleanly
 const server = app.listen(PORT, () => {
